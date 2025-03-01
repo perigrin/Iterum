@@ -1,0 +1,34 @@
+---
+abstract: 'EV-Based Roguelike Game'
+author:
+  - 'Chris Prather <chris@prather.org>'
+build_requires:
+  Test2::Suite: '0.000145'
+  Test2::V0: '0.000145'
+configure_requires:
+  Module::Build::Tiny: '0.039'
+dynamic_config: 0
+generated_by: 'Module::Build::Tiny version 0.039'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: Iterum
+provides:
+  Iterum::ECS:
+    file: lib/Iterum/ECS.pm
+    version: '0.01'
+requires:
+  DBI: '0'
+  DBD::SQLite: '0'
+  File::ShareDir: '0'
+  File::ShareDir::Dist: '0'
+  File::Slurper: '0'
+  JSON::MaybeXS: '0'
+  Term::ReadKey: '0'
+  Time::HiRes: '0'
+  experimental: '0'
+  perl: '5.40.0'
+resources:
+  repository: https://github.com/username/iterum
+version: '0.01'
