@@ -1,0 +1,18 @@
+{
+  "actions": {
+    "attack": {
+      "goblin": {
+        "low_health": 90,
+        "medium_health": 80,
+        "high_health": 70
+      }
+    },
+    "defend": {
+      "goblin": {
+        "low_health": 60,
+        "medium_health": 70,
+        "high_health": 80
+      }
+    }
+  }
+}

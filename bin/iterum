@@ -2,8 +2,56 @@
 use 5.40.0;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
-use Iterum::ECS;
 
-# Main game loop will be implemented here
+use Iterum::ECS;
+use Iterum::Components::Health;
+use Iterum::Components::CombatStats;
+use Iterum::Util::Data qw(load_json_data);
+
+# Setup ECS
+my $ecs = Iterum::ECS->new();
+
+# Register components
+Iterum::Components::Health::register($ecs);
+Iterum::Components::CombatStats::register($ecs);
+
+# Basic welcome message
 say "Welcome to Iterum!";
-# More code to come...
+say "A roguelike where Expected Value (EV) determines decision quality rather than outcomes.";
+say "----------------------------------------";
+say "Game is initializing...";
+
+# This is a placeholder for the actual game loop that will be implemented 
+# in the next steps of the project. For now, it demonstrates the component setup.
+
+# Create a test entity
+my $player_id = $ecs->new_entity('player');
+say "Created player entity with ID: $player_id";
+
+# Add components to the player
+Iterum::Components::Health::add($ecs, $player_id, max_hp => 100, current_hp => 100);
+Iterum::Components::CombatStats::add($ecs, $player_id, attack => 10, defense => 5);
+
+# Display player status
+my ($health, $combat_stats) = $ecs->get_components($player_id, 'Health', 'CombatStats');
+
+say "\nPlayer Status:";
+say "Health: $health->{current_hp}/$health->{max_hp} HP";
+say "Attack: $combat_stats->{attack}";
+say "Defense: $combat_stats->{defense}";
+
+say "\nGame setup completed. Full game loop will be implemented in the next development phase.";
+# Load EV lookup data from shared data file
+my $ev_data = load_json_data('ev_lookup.json');
+
+say "\nEV Values for actions:";
+say "Attack Goblin (low health): " . $ev_data->{actions}{attack}{goblin}{low_health};
+say "Defend against Goblin (high health): " . $ev_data->{actions}{defend}{goblin}{high_health};
+
+say "\nTo exit, press Ctrl+C";
+
+# Placeholder for main game loop
+while (1) {
+    # This will be replaced with actual game logic
+    sleep 1;
+}
