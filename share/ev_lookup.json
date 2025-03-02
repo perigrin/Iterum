@@ -1,18 +1,38 @@
 {
-  "actions": {
-    "attack": {
-      "goblin": {
-        "low_health": 90,
-        "medium_health": 80,
-        "high_health": 70
-      }
-    },
-    "defend": {
-      "goblin": {
-        "low_health": 60,
-        "medium_health": 70,
-        "high_health": 80
-      }
+  "attack": {
+    "base_score": 50,
+    "modifiers": {
+      "health_below_30_percent": -20,
+      "opponent_health_below_30_percent": 30,
+      "defensive_stance": -10,
+      "attack_advantage": 15,
+      "attack_disadvantage": -15
+    }
+  },
+  "defend": {
+    "base_score": 40,
+    "modifiers": {
+      "health_below_30_percent": 30,
+      "opponent_health_below_30_percent": -10,
+      "already_defending": -30,
+      "opponent_attack_high": 20
+    }
+  },
+  "use_item": {
+    "base_score": 30,
+    "modifiers": {
+      "health_below_30_percent": 40,
+      "healing_item_when_full": -25,
+      "buff_item_against_weak_enemy": -10,
+      "no_items": -100
+    }
+  },
+  "flee": {
+    "base_score": 20,
+    "modifiers": {
+      "health_below_30_percent": 60,
+      "opponent_health_below_30_percent": -30,
+      "already_tried_fleeing": -15
     }
   }
 }

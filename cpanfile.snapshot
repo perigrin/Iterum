@@ -183,6 +183,18 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       warnings 0
+  File-ShareDir-Tiny-0.001
+    pathname: L/LE/LEONT/File-ShareDir-Tiny-0.001.tar.gz
+    provides:
+      File::ShareDir::Tiny 0.001
+    requirements:
+      Carp 0
+      Exporter 5.57
+      ExtUtils::MakeMaker 0
+      File::Spec::Functions 0
+      perl 5.006
+      strict 0
+      warnings 0
   File-Slurper-0.014
     pathname: L/LE/LEONT/File-Slurper-0.014.tar.gz
     provides:
@@ -208,6 +220,33 @@ DISTRIBUTIONS
       JSON::PP 2.27300
       Scalar::Util 0
       perl 5.006
+  Path-Tiny-0.146
+    pathname: D/DA/DAGOLDEN/Path-Tiny-0.146.tar.gz
+    provides:
+      Path::Tiny 0.146
+      Path::Tiny::Error 0.146
+    requirements:
+      Carp 0
+      Cwd 0
+      Digest 1.03
+      Digest::SHA 5.45
+      Encode 0
+      Exporter 5.57
+      ExtUtils::MakeMaker 6.17
+      Fcntl 0
+      File::Compare 0
+      File::Copy 0
+      File::Glob 0
+      File::Path 2.07
+      File::Spec 0.86
+      File::Temp 0.19
+      File::stat 0
+      constant 0
+      overload 0
+      perl 5.008001
+      strict 0
+      warnings 0
+      warnings::register 0
   TermReadKey-2.38
     pathname: J/JS/JSTOWE/TermReadKey-2.38.tar.gz
     provides:

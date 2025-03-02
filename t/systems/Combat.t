@@ -6,6 +6,7 @@ use lib "$Bin/../../lib";
 use Iterum::ECS;
 use Iterum::Components::Health;
 use Iterum::Components::CombatStats;
+use Iterum::Components::EVScore;
 use Iterum::Systems::Combat;
 
 # Setup helper function - create an ECS with registered components
@@ -13,6 +14,7 @@ sub setup_ecs {
     my $ecs = Iterum::ECS->new();
     Iterum::Components::Health::register($ecs);
     Iterum::Components::CombatStats::register($ecs);
+    Iterum::Components::EVScore::register($ecs);
     return $ecs;
 }
 
@@ -31,6 +33,9 @@ sub create_entity {
         attack  => $params{attack}  // 10,
         defense => $params{defense} // 5,
     );
+    
+    # Add EVScore component for EV tracking
+    Iterum::Components::EVScore::add($ecs, $entity_id);
     
     return $entity_id;
 }

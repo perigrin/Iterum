@@ -1,8 +1,16 @@
 script/iterum
 Build.PL
 cpanfile
-data/ev_lookup.json
 lib/Iterum/ECS.pm
+lib/Iterum/Systems/Combat.pm
+lib/Iterum/Systems/EVScoring.pm
+lib/Iterum/Components/Health.pm
+lib/Iterum/Components/CombatStats.pm
+lib/Iterum/Components/EVScore.pm
+lib/Iterum/Components/Position.pm
+share/ev_lookup.json
+share/Iterum-Systems-EVScoring/ev_lookup.json
+share/schema.sql
 LICENSE
 MANIFEST			This list of files
 META.yml
