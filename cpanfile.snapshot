@@ -187,3 +187,12 @@ DISTRIBUTIONS
       strict 0
       warnings 0
       warnings::register 0
+  Term-Screen-1.06
+    pathname: J/JS/JSTOWE/Term-Screen-1.06.tar.gz
+    provides:
+      Term::Screen 1.06
+    requirements:
+      ExtUtils::MakeMaker 0
+      Term::Cap 0
+      Test::More 0
+      perl 5.006

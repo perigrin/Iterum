@@ -5,6 +5,8 @@ requires 'JSON::MaybeXS';
 requires 'Time::HiRes';
 requires 'File::ShareDir::Tiny';
 requires 'Path::Tiny';
+requires 'Term::Screen';
+requires 'Term::ANSIColor';
 
 on 'test' => sub {
     requires 'Test2::V0';
