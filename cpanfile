@@ -7,6 +7,8 @@ requires 'File::ShareDir::Tiny';
 requires 'Path::Tiny';
 requires 'Term::Screen';
 requires 'Term::ANSIColor';
+requires 'Feature::Compat::Try';
+requires 'Feature::Compat::Class';
 
 on 'test' => sub {
     requires 'Test2::V0';

@@ -14,281 +14,350 @@ use Iterum::UI::CLI;
 
 # Game states
 use constant {
-    STATE_START => 'start',
+    STATE_START  => 'start',
     STATE_COMBAT => 'combat',
-    STATE_END => 'end',
+    STATE_END    => 'end',
 };
 
 # Player actions
 use constant {
     ACTION_ATTACK => 'attack',
     ACTION_DEFEND => 'defend',
-    ACTION_QUIT => 'quit',
-    ACTION_HELP => 'help',
+    ACTION_QUIT   => 'quit',
+    ACTION_HELP   => 'help',
 };
 
 # Initialize game state
 my $game_state = {
-    running => 1,
+    running       => 1,
     current_state => STATE_START,
-    player => undef,
-    enemy => undef,
-    ecs => undef,
-    systems => [],
-    cli => undef,
-    turn => 0,
-    message => '',
-    show_help => 0,
+    player        => undef,
+    enemy         => undef,
+    ecs           => undef,
+    systems       => [],
+    cli           => undef,
+    turn          => 0,
+    message       => '',
+    show_help     => 0,
 };
 
 # Initialize ECS and entities
-sub initialize_game {
-    my ($state) = @_;
-    
+sub initialize_game($state) {
+
     try {
         # Create ECS
         $state->{ecs} = Iterum::ECS->new();
-        
+
         # Create player
-        $state->{player} = Iterum::Entities::Player->new(ecs => $state->{ecs});
-        
+        $state->{player} =
+          Iterum::Entities::Player->new( ecs => $state->{ecs} );
+          
+        # Set up the player components
+        $state->{player}->setup();
+
         # Create enemy (goblin)
-        $state->{enemy} = Iterum::Entities::Enemies::Goblin->new(ecs => $state->{ecs});
+        $state->{enemy} =
+          Iterum::Entities::Enemies::Goblin->new( ecs => $state->{ecs} );
         
+        # Set up the goblin components
+        $state->{enemy}->setup();
+
         # Create systems
-        my $combat_system = Iterum::Systems::Combat->new(ecs => $state->{ecs});
-        my $ev_system = Iterum::Systems::EVScoring->new(ecs => $state->{ecs});
-        
-        $state->{systems} = [$combat_system, $ev_system];
-        
+        my $combat_system =
+          Iterum::Systems::Combat->new( ecs => $state->{ecs} );
+        my $ev_system = Iterum::Systems::EVScoring->new( ecs => $state->{ecs} );
+
+        $state->{systems} = [ $combat_system, $ev_system ];
+
         # Add systems to ECS
-        $state->{ecs}->add_system($_) for @{$state->{systems}};
+        $state->{ecs}->add_system($_) for @{ $state->{systems} };
         
+        # Start combat between player and enemy
+        $combat_system->start_combat(
+            $state->{player}->id,
+            $state->{enemy}->id
+        );
+
         # Initialize CLI
         $state->{cli} = Iterum::UI::CLI->new();
-    } catch {
-        die "Failed to initialize game: $_";
+    }
+    catch ($e) {
+        die "Failed to initialize game: $e";
     };
-    
+
     return $state;
 }
 
 # Display help screen
-sub display_help {
-    my ($state) = @_;
-    
+sub display_help($state) {
+
     $state->{cli}->clear_screen();
     $state->{cli}->display_title("Iterum - Help");
-    $state->{cli}->display_text("Iterum is an EV-Based Decision Roguelike where your choices are evaluated based on their Expected Value (EV).");
+    $state->{cli}->display_text(
+"Iterum is an EV-Based Decision Roguelike where your choices are evaluated based on their Expected Value (EV)."
+    );
     $state->{cli}->display_text("\nGame Objective:");
-    $state->{cli}->display_text("Defeat enemies by making optimal decisions. Your decisions are scored based on their Expected Value,");
-    $state->{cli}->display_text("not just their outcomes. Try to maximize your EV score!");
-    
+    $state->{cli}->display_text(
+"Defeat enemies by making optimal decisions. Your decisions are scored based on their Expected Value,"
+    );
+    $state->{cli}
+      ->display_text("not just their outcomes. Try to maximize your EV score!");
+
     $state->{cli}->display_text("\nActions:");
-    $state->{cli}->display_text("- attack: Attack the enemy. High damage but risky.");
-    $state->{cli}->display_text("- defend: Increase your defense for one turn. Safe but low damage.");
+    $state->{cli}
+      ->display_text("- attack: Attack the enemy. High damage but risky.");
+    $state->{cli}->display_text(
+        "- defend: Increase your defense for one turn. Safe but low damage.");
     $state->{cli}->display_text("- help: Show this help screen.");
     $state->{cli}->display_text("- quit: Exit the game.");
-    
+
     $state->{cli}->display_text("\nEV Scoring:");
-    $state->{cli}->display_text("Each action has an Expected Value based on risk/reward calculations.");
-    $state->{cli}->display_text("Attack has high EV against weak enemies, defend has high EV against strong enemies.");
+    $state->{cli}->display_text(
+        "Each action has an Expected Value based on risk/reward calculations.");
+    $state->{cli}->display_text(
+"Attack has high EV against weak enemies, defend has high EV against strong enemies."
+    );
     $state->{cli}->display_text("\nPress any key to continue...");
-    
+
     $state->{cli}->get_input();
 }
 
 # Process start state
-sub process_start_state {
-    my ($state) = @_;
-    
+sub process_start_state($state) {
+
     # Display welcome message
     $state->{cli}->clear_screen();
     $state->{cli}->display_title("Welcome to Iterum");
     $state->{cli}->display_text("An EV-Based Decision Roguelike");
-    $state->{cli}->display_text("\nIn this game, your decisions are evaluated based on their Expected Value (EV),");
-    $state->{cli}->display_text("not just their outcomes. Make strategic choices to maximize your EV score!");
-    $state->{cli}->display_text("\nType 'help' during combat for more information.");
+    $state->{cli}->display_text(
+"\nIn this game, your decisions are evaluated based on their Expected Value (EV),"
+    );
+    $state->{cli}->display_text(
+"not just their outcomes. Make strategic choices to maximize your EV score!"
+    );
+    $state->{cli}
+      ->display_text("\nType 'help' during combat for more information.");
     $state->{cli}->display_text("\nPress any key to start...");
-    
+
     # Wait for key press
     $state->{cli}->get_input();
-    
+
     # Transition to combat state
     $state->{current_state} = STATE_COMBAT;
 }
 
 # Process combat state
-sub process_combat_state {
-    my ($state) = @_;
-    
+sub process_combat_state($state) {
+
     # Check if we should show help
-    if ($state->{show_help}) {
+    if ( $state->{show_help} ) {
         display_help($state);
         $state->{show_help} = 0;
         return;
     }
-    
+
     # Display game state
     $state->{cli}->clear_screen();
-    $state->{cli}->display_title("Iterum - Turn " . $state->{turn});
-    
+    $state->{cli}->display_title( "Iterum - Turn " . $state->{turn} );
+
     # Display player and enemy status
     my $player_status = $state->{player}->get_status();
-    my $enemy_status = $state->{enemy}->get_status();
-    
+    my $enemy_status  = $state->{enemy}->get_status();
+
     $state->{cli}->display_entity_status($player_status);
     $state->{cli}->display_entity_status($enemy_status);
-    
+
     # Display message if any
-    $state->{cli}->display_message($state->{message}) if $state->{message};
+    $state->{cli}->display_message( $state->{message} ) if $state->{message};
     $state->{message} = '';
-    
+
     # Get player action
-    my $action = lc($state->{cli}->get_combat_action());
-    
+    my $action = lc( $state->{cli}->get_combat_action() );
+
     # Process player action
-    my $combat_system = $state->{systems}[0]; # Combat system
-    my $ev_system = $state->{systems}[1];     # EV scoring system
-    
-    if ($action eq ACTION_ATTACK) {
-        my $result = $combat_system->process_attack($state->{player}->id, $state->{enemy}->id);
+    my $combat_system = $state->{systems}[0];    # Combat system
+    my $ev_system     = $state->{systems}[1];    # EV scoring system
+
+    if ( $action eq ACTION_ATTACK ) {
+        $combat_system->set_target( $state->{player}->id, $state->{enemy}->id );
+        $combat_system->set_action( $state->{player}->id, 'attack' );
+        $combat_system->process_attack( $state->{player}->id );
+        
+        my $hit = $combat_system->last_hit( $state->{player}->id );
+        my $damage = $combat_system->last_damage( $state->{player}->id );
+        
         $state->{message} = "You attacked the " . $enemy_status->{name} . "!";
-        if ($result->{hit}) {
-            $state->{message} .= " You hit for " . $result->{damage} . " damage!";
-        } else {
+        if ( $hit ) {
+            $state->{message} .=
+              " You hit for " . $damage . " damage!";
+        }
+        else {
             $state->{message} .= " You missed!";
         }
-        
+
         # Score the player's decision
-        $ev_system->score_decision($state->{player}->id, ACTION_ATTACK, $result);
-    } elsif ($action eq ACTION_DEFEND) {
+        $ev_system->record_decision( $state->{player}->id,
+            $state->{enemy}->id, 'attack' );
+    }
+    elsif ( $action eq ACTION_DEFEND ) {
         $state->{player}->defend();
         $state->{message} = "You prepare to defend!";
-        
+
         # Score the player's decision
-        $ev_system->score_decision($state->{player}->id, ACTION_DEFEND, {});
-    } elsif ($action eq ACTION_HELP) {
+        $ev_system->record_decision( $state->{player}->id,
+            $state->{enemy}->id, 'defend' );
+    }
+    elsif ( $action eq ACTION_HELP ) {
         $state->{show_help} = 1;
         return;
-    } elsif ($action eq ACTION_QUIT) {
+    }
+    elsif ( $action eq ACTION_QUIT ) {
         $state->{current_state} = STATE_END;
-        $state->{message} = "You decided to quit the game.";
-        return;
-    } else {
-        $state->{message} = "Invalid action. Try 'attack', 'defend', 'help', or 'quit'.";
+        $state->{message}       = "You decided to quit the game.";
         return;
     }
-    
+    else {
+        $state->{message} =
+          "Invalid action. Try 'attack', 'defend', 'help', or 'quit'.";
+        return;
+    }
+
     # Process enemy turn if player is still alive
-    my ($player_health) = $state->{ecs}->get_components($state->{player}->id, 'Health');
-    if ($player_health->{current_hp} > 0) {
-        my $enemy_action = $combat_system->get_enemy_action($state->{enemy}->id, $state->{player}->id);
-        my $result = $combat_system->process_enemy_action($state->{enemy}->id, $state->{player}->id, $enemy_action);
+    my ($player_health) =
+      $state->{ecs}->get_components( $state->{player}->id, 'Health' );
+    if ( $player_health->{current_hp} > 0 ) {
+        # Set up enemy attack
+        $combat_system->set_target($state->{enemy}->id, $state->{player}->id);
+        $combat_system->set_action($state->{enemy}->id, 'attack');
+        $combat_system->process_attack($state->{enemy}->id);
         
-        $state->{message} .= "\nThe " . $enemy_status->{name} . " " . $enemy_action . "s you!";
-        if ($result->{hit}) {
-            $state->{message} .= " It hits for " . $result->{damage} . " damage!";
-        } else {
+        my $hit = $combat_system->last_hit($state->{enemy}->id);
+        my $damage = $combat_system->last_damage($state->{enemy}->id);
+
+        $state->{message} .=
+          "\nThe " . $enemy_status->{name} . " attacks you!";
+        if ( $hit ) {
+            $state->{message} .=
+              " It hits for " . $damage . " damage!";
+        }
+        else {
             $state->{message} .= " It misses!";
         }
     }
-    
+
     # Check if combat has ended
-    ($player_health) = $state->{ecs}->get_components($state->{player}->id, 'Health');
-    my ($enemy_health) = $state->{ecs}->get_components($state->{enemy}->id, 'Health');
-    
-    if ($player_health->{current_hp} <= 0) {
+    ($player_health) =
+      $state->{ecs}->get_components( $state->{player}->id, 'Health' );
+    my ($enemy_health) =
+      $state->{ecs}->get_components( $state->{enemy}->id, 'Health' );
+
+    if ( $player_health->{current_hp} <= 0 ) {
         $state->{message} .= "\nYou have been defeated!";
         $state->{current_state} = STATE_END;
-    } elsif ($enemy_health->{current_hp} <= 0) {
-        $state->{message} .= "\nYou have defeated the " . $enemy_status->{name} . "!";
+    }
+    elsif ( $enemy_health->{current_hp} <= 0 ) {
+        $state->{message} .=
+          "\nYou have defeated the " . $enemy_status->{name} . "!";
         $state->{current_state} = STATE_END;
     }
-    
+
     # Increment turn counter
     $state->{turn}++;
-    
+
     # Log the current EV score if available
-    my $current_score = $ev_system->get_current_score($state->{player}->id);
-    $state->{cli}->display_ev_score($current_score) if $current_score;
+    my $stats = $ev_system->get_decision_stats( $state->{player}->id );
+    if ($stats && $stats->{overall_avg}) {
+        $state->{cli}->display_message("Current EV score: " . $stats->{overall_avg}, 'green');
+    }
 }
 
 # Process end state
-sub process_end_state {
-    my ($state) = @_;
-    
+sub process_end_state($state) {
+
     # Display end game message
     $state->{cli}->clear_screen();
     $state->{cli}->display_title("Game Over");
-    $state->{cli}->display_text($state->{message});
-    
+    $state->{cli}->display_text( $state->{message} );
+
     # Display EV score summary
-    my $ev_system = $state->{systems}[1]; # EV scoring system
-    my $score_summary = $ev_system->get_score_summary($state->{player}->id);
-    $state->{cli}->display_score_summary($score_summary);
+    my $ev_system = $state->{systems}[1];    # EV scoring system
+    my $stats = $ev_system->get_decision_stats( $state->{player}->id );
     
-    # Show detailed EV analysis
-    $state->{cli}->display_text("\nEV Analysis:");
-    $state->{cli}->display_text("- Your best decision: " . $score_summary->{best_decision});
-    $state->{cli}->display_text("- Your worst decision: " . $score_summary->{worst_decision});
-    $state->{cli}->display_text("- Overall decision quality: " . get_decision_quality_text($score_summary->{total_score}));
-    
+    if ($stats && $stats->{overall_avg}) {
+        $state->{cli}->display_text("\nEV Score Summary:");
+        $state->{cli}->display_text("Total Score: " . $stats->{overall_avg});
+        
+        my $feedback = $ev_system->generate_feedback($state->{player}->id);
+        $state->{cli}->display_text("\nAI Coach Feedback: " . $feedback);
+        
+        # Show detailed EV analysis
+        $state->{cli}->display_text("\nDecision quality: " 
+            . get_decision_quality_text( $stats->{overall_avg} ));
+    }
+
     # Ask to play again
     $state->{cli}->display_text("\nPlay again? (y/n)");
-    my $input = lc($state->{cli}->get_input());
-    
-    if ($input eq 'y') {
+    my $input = lc( $state->{cli}->get_input() );
+
+    if ( $input eq 'y' ) {
+
         # Reset game state
         $state->{current_state} = STATE_START;
-        $state->{turn} = 0;
-        $state->{message} = '';
-        $state->{show_help} = 0;
+        $state->{turn}          = 0;
+        $state->{message}       = '';
+        $state->{show_help}     = 0;
         initialize_game($state);
-    } else {
+    }
+    else {
         # End the game
         $state->{running} = 0;
     }
 }
 
 # Get decision quality text based on score
-sub get_decision_quality_text {
-    my ($score) = @_;
-    
-    if ($score >= 90) {
+sub get_decision_quality_text($score) {
+
+    if ( $score >= 90 ) {
         return "Excellent! You made optimal decisions.";
-    } elsif ($score >= 70) {
+    }
+    elsif ( $score >= 70 ) {
         return "Good. Your decisions were generally sound.";
-    } elsif ($score >= 50) {
+    }
+    elsif ( $score >= 50 ) {
         return "Fair. Some decisions could be improved.";
-    } else {
+    }
+    else {
         return "Poor. Try to analyze the risk/reward better next time.";
     }
 }
 
 # Main game loop
-sub main_loop {
-    my ($state) = @_;
-    
-    while ($state->{running}) {
+sub main_loop($state) {
+
+    while ( $state->{running} ) {
         try {
-            if ($state->{current_state} eq STATE_START) {
+            if ( $state->{current_state} eq STATE_START ) {
                 process_start_state($state);
-            } elsif ($state->{current_state} eq STATE_COMBAT) {
+            }
+            elsif ( $state->{current_state} eq STATE_COMBAT ) {
                 process_combat_state($state);
-            } elsif ($state->{current_state} eq STATE_END) {
+            }
+            elsif ( $state->{current_state} eq STATE_END ) {
                 process_end_state($state);
-            } else {
+            }
+            else {
                 die "Invalid game state: " . $state->{current_state};
             }
-            
+
             # Update ECS systems
             $state->{ecs}->update();
-        } catch {
+        }
+        catch ($e) {
+
             # Handle any errors
             $state->{cli}->clear_screen();
             $state->{cli}->display_title("Error");
-            $state->{cli}->display_text("An error occurred: $_");
+            $state->{cli}->display_text("An error occurred: $e");
             $state->{cli}->display_text("\nPress any key to exit...");
             $state->{cli}->get_input();
             $state->{running} = 0;
@@ -300,12 +369,15 @@ sub main_loop {
 try {
     $game_state = initialize_game($game_state);
     main_loop($game_state);
-    
+
     # Clean up and exit
     $game_state->{cli}->cleanup();
     say "Thanks for playing Iterum!";
-} catch {
-    say "Critical error: $_";
-} finally {
+}
+catch ($e) {
+    say "Critical error: $e";
+}
+finally {
+    exec('stty sane');
     exit 0;
 };

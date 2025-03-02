@@ -164,23 +164,33 @@ subtest 'Combat Round Processing' => sub {
     $combat->start_combat( $attacker, $defender );
 
     # Process a round with attacker attacking
-    $combat->set_action( $attacker, 'attack' );
     $combat->set_target( $attacker, $defender );
+    $combat->set_action( $attacker, 'attack' );
+    $combat->process_attack( $attacker );
+    
+    # Check if attack hit and got damage
+    my $hit = $combat->last_hit($attacker);
+    my $damage = $combat->last_damage($attacker);
+    
+    ok(defined $hit, 'Hit result recorded');
+    
+    if ($hit) {
+        ok($damage > 0, 'Damage was dealt');
+        
+        # Verify damage was applied to defender
+        my ($defender_health) = $ecs->get_components( $defender, 'Health' );
+        is($defender_health->{current_hp}, 80 - $damage, 'Damage applied correctly');
+    }
 
     # Process a round with defender defending
     $combat->set_action( $defender, 'defend' );
+    $combat->process_defend( $defender );
 
     # Update the system
     $ecs->update();
 
     # Check results
-    my ($defender_health) = $ecs->get_components( $defender, 'Health' );
-    my ($defender_stats)  = $ecs->get_components( $defender, 'CombatStats' );
-
-    # Defender should have lost some health if attack hit
-    if ( $combat->last_hit($attacker) ) {
-        ok( $defender_health->{current_hp} < 80, 'Defender lost health' );
-    }
+    my ($defender_stats) = $ecs->get_components( $defender, 'CombatStats' );
 
     # Defender should be in defensive stance
     ok( $defender_stats->{defending}, 'Defender is in defensive stance' );

@@ -22,30 +22,40 @@ package MockGoblin {
 
 package MockCombat {
     sub new { bless {}, shift }
-    sub process_attack { {hit => 1, damage => 10} }
-    sub get_enemy_action { 'attack' }
-    sub process_enemy_action { {hit => 1, damage => 5} }
+    sub start_combat { 1 }
+    sub set_target { 1 }
+    sub set_action { 1 }
+    sub process_attack { 1 }
+    sub last_hit { 1 }
+    sub last_damage { 10 }
 }
 
 package MockEVScoring {
     sub new { bless {scores => {}}, shift }
-    sub score_decision { my ($self, $entity_id, $action, $result) = @_; $self->{scores}{$entity_id} = 10; }
-    sub get_current_score { 10 }
-    sub get_score_summary { {total_score => 10, best_decision => 'attack', worst_decision => 'defend'} }
+    sub record_decision { my ($self, $entity_id, $target_id, $action) = @_; $self->{scores}{$entity_id} = 10; }
+    sub get_decision_stats { {overall_avg => 10} }
+    sub generate_feedback { "You're doing great!" }
 }
 
 package MockCLI {
     sub new { bless {}, shift }
     sub clear_screen { 1 }
+    sub display_header { 1 }
     sub display_title { 1 }
     sub display_text { 1 }
     sub display_entity_status { 1 }
     sub display_message { 1 }
     sub display_ev_score { 1 }
     sub display_score_summary { 1 }
+    sub colored_puts { 1 }
+    sub prompt_continue { 1 }
     sub get_input { 'y' }
     sub get_combat_action { 'attack' }
     sub cleanup { 1 }
+    sub display_combat_options { 1 }
+    sub display_result { 1 }
+    sub display_ev_feedback { 1 }
+    sub display_decision_history { 1 }
 }
 
 # Game state constants
@@ -288,15 +298,32 @@ sub process_combat_state {
     my $ev_system = $state->{systems}[1];     # EV scoring system
     
     if ($action eq 'attack') {
-        my $result = $combat_system->process_attack($state->{player}->id, $state->{enemy}->id);
+        $combat_system->set_target($state->{player}->id, $state->{enemy}->id);
+        $combat_system->set_action($state->{player}->id, 'attack');
+        $combat_system->process_attack($state->{player}->id);
+        
+        my $hit = $combat_system->last_hit($state->{player}->id);
+        my $damage = $combat_system->last_damage($state->{player}->id);
+        
         $state->{message} = "You attacked the " . $enemy_status->{name} . "!";
         
         # Score the player's decision
-        $ev_system->score_decision($state->{player}->id, 'attack', $result);
+        $ev_system->record_decision($state->{player}->id, $state->{enemy}->id, 'attack');
     }
     
     # Process enemy turn (mock)
     my ($player_health) = $state->{ecs}->get_components($state->{player}->id, 'Health');
+    if ($player_health->{current_hp} > 0) {
+        # Set up enemy attack
+        $combat_system->set_target($state->{enemy}->id, $state->{player}->id);
+        $combat_system->set_action($state->{enemy}->id, 'attack');
+        $combat_system->process_attack($state->{enemy}->id);
+        
+        my $hit = $combat_system->last_hit($state->{enemy}->id);
+        my $damage = $combat_system->last_damage($state->{enemy}->id);
+        
+        $state->{message} .= "\nThe " . $enemy_status->{name} . " attacks you!";
+    }
     
     # Check if combat has ended
     if ($player_health->{current_hp} <= 0) {
@@ -318,8 +345,15 @@ sub process_end_state {
     
     # Display EV score summary (mock)
     my $ev_system = $state->{systems}[1]; # EV scoring system
-    my $score_summary = $ev_system->get_score_summary($state->{player}->id);
-    $state->{cli}->display_score_summary($score_summary);
+    my $stats = $ev_system->get_decision_stats($state->{player}->id);
+    
+    if ($stats && $stats->{overall_avg}) {
+        $state->{cli}->display_text("\nEV Score Summary:");
+        $state->{cli}->display_text("Total Score: " . $stats->{overall_avg});
+        
+        my $feedback = $ev_system->generate_feedback($state->{player}->id);
+        $state->{cli}->display_text("\nAI Coach Feedback: " . $feedback);
+    }
     
     # Ask to play again (mock)
     $state->{cli}->display_text("\nPlay again? (y/n)");

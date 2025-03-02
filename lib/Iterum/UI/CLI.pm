@@ -250,66 +250,75 @@ class Iterum::UI::CLI {
     }
 
     # Input methods
-    method get_input($options) {
+    method get_input($options = undef) {
         if ($test_mode) {
-
-            # In test mode, return the predefined input
-            my $input = $test_input;
-
-            # Validate input
-            if ( $input !~ /^\d+$/ ) {
-                die "Invalid input: not a number";
+            # In test mode, return the predefined input or empty string
+            if (defined $options) {
+                # Options mode
+                my $input = $test_input;
+                
+                # Validate input
+                if ($input !~ /^\d+$/) {
+                    die "Invalid input: not a number";
+                }
+                
+                my $index = $input - 1;
+                if ($index < 0 || $index > $options->$#*) {
+                    die "Invalid input: out of range";
+                }
+                
+                return $options->[$index];
+            } else {
+                # Key press mode
+                return $test_input || '';
             }
-
-            my $index = $input - 1;
-            if ( $index < 0 || $index > $options->$#* ) {
-                die "Invalid input: out of range";
-            }
-
-            return $options->[$index];
         }
-
-        $screen->at( $height - 3, 0 );
-        $screen->puts( "Enter your choice (1-" . scalar(@$options) . "): " );
-
-        my $input;
-        my $valid = 0;
-
-        while ( !$valid ) {
-            $input = $screen->getch();
-
-            # Handle special keys
-            if ( $input eq 'q' || $input eq 'Q' ) {
-                die "User quit the game";
+        
+        if (defined $options) {
+            # Options mode
+            $screen->at($height - 3, 0);
+            $screen->puts("Enter your choice (1-" . scalar(@$options) . "): ");
+            
+            my $input;
+            my $valid = 0;
+            
+            while (!$valid) {
+                $input = $screen->getch();
+                
+                # Handle special keys
+                if ($input eq 'q' || $input eq 'Q') {
+                    die "User quit the game";
+                }
+                
+                # Clear previous error message
+                $screen->at($height - 2, 0);
+                $screen->puts(" " x $width);
+                
+                # Validate input
+                if ($input !~ /^\d+$/) {
+                    $screen->at($height - 2, 0);
+                    $self->colored_puts("Invalid input. Please enter a number.", 'red');
+                    $screen->at($height - 3, 32);
+                    next;
+                }
+                
+                my $index = $input - 1;
+                if ($index < 0 || $index > $options->$#*) {
+                    $screen->at($height - 2, 0);
+                    $self->colored_puts(
+                        "Invalid choice. Please choose 1-" . scalar(@$options) . ".",
+                        'red'
+                    );
+                    $screen->at($height - 3, 32);
+                    next;
+                }
+                
+                $valid = 1;
+                return $options->[$index];
             }
-
-            # Clear previous error message
-            $screen->at( $height - 2, 0 );
-            $screen->puts( " " x $width );
-
-            # Validate input
-            if ( $input !~ /^\d+$/ ) {
-                $screen->at( $height - 2, 0 );
-                $self->colored_puts( "Invalid input. Please enter a number.",
-                    'red' );
-                $screen->at( $height - 3, 32 );
-                next;
-            }
-
-            my $index = $input - 1;
-            if ( $index < 0 || $index > $options->$#* ) {
-                $screen->at( $height - 2, 0 );
-                $self->colored_puts(
-                    "Invalid choice. Please choose 1-"
-                      . scalar(@$options) . ".",
-                    'red'
-                );
-                $screen->at( $height - 3, 32 );
-                next;
-            }
-
-            $valid = 1;
-            return $options->[$index];
+        } else {
+            # Any key press mode - just wait for any key
+            return $screen->getch();
         }
     }
 
@@ -326,6 +335,173 @@ class Iterum::UI::CLI {
 
         $screen->at( $height - 2, 0 );
         $self->colored_puts( $message, $color );
+    }
+    
+    # Display a title
+    method display_title($title) {
+        return if $test_mode;
+        
+        my $padding = int(($width - length($title)) / 2);
+        $screen->at(1, $padding);
+        $screen->bold();
+        $screen->puts($title);
+        $screen->normal();
+        $screen->at(2, 0);
+    }
+
+    # Display text with wrapping
+    method display_text($text) {
+        return if $test_mode;
+        
+        # Start at current line, track position manually
+        my $row = 2; # Start after title
+        my $col = 0;
+        
+        # Simple word wrapping
+        my @words = split(/\s+/, $text);
+        my $line = "";
+        
+        foreach my $word (@words) {
+            if (length($line) + length($word) + 1 > $width) {
+                $screen->at($row, $col);
+                $screen->puts($line);
+                $line = $word;
+                $row++;
+            } else {
+                $line .= ($line eq "" ? "" : " ") . $word;
+            }
+        }
+        
+        # Output the last line
+        if ($line ne "") {
+            $screen->at($row, $col);
+            $screen->puts($line);
+            $row++;
+        }
+        
+        # Update cursor position
+        $screen->at($row + 1, 0);
+        return $row + 1; # Return next row position
+    }
+
+    # Display player or enemy status
+    method display_entity_status($entity) {
+        return if $test_mode;
+        
+        # Use current row or start after the previous content
+        my $row = 6; # Start after title and text
+        
+        $screen->at($row, 0);
+        $screen->bold();
+        $screen->puts($entity->{name});
+        $screen->normal();
+        
+        $screen->at($row + 1, 2);
+        my $hp_percent = $entity->{health}{current_hp} / $entity->{health}{max_hp};
+        my $hp_color = $hp_percent > 0.7 ? 'green' : ($hp_percent > 0.3 ? 'yellow' : 'red');
+        
+        $screen->puts("HP: ");
+        $self->colored_puts($entity->{health}{current_hp} . "/" . $entity->{health}{max_hp}, $hp_color);
+        
+        $screen->at($row + 2, 2);
+        $screen->puts("ATK: " . $entity->{stats}{attack} . " DEF: " . $entity->{stats}{defense});
+        
+        # Update cursor position
+        $screen->at($row + 3, 0);
+        return $row + 3; # Return next row position
+    }
+
+    # Get combat action from player
+    method get_combat_action() {
+        my @options = ('attack', 'defend', 'help', 'quit');
+        
+        if ($test_mode) {
+            # In test mode, process the input to mimic real behavior
+            my $input = $test_input;
+            
+            # Handle first letter shortcuts
+            if ($input =~ /^[adqh]$/i) {
+                if ($input =~ /^a$/i) { return 'attack'; }
+                if ($input =~ /^d$/i) { return 'defend'; }
+                if ($input =~ /^q$/i) { return 'quit'; }
+                if ($input =~ /^h$/i) { return 'help'; }
+            }
+            
+            # Handle numeric choice
+            if ($input =~ /^[1-4]$/) {
+                return $options[$input - 1];
+            }
+            
+            # Invalid input, return default
+            return 'attack';
+        }
+        
+        # Display options
+        $screen->at($height - 5, 0);
+        $screen->bold();
+        $screen->puts("Combat Options:");
+        $screen->normal();
+        
+        for my $i (0 .. $#options) {
+            $screen->at($height - 4 + $i, 2);
+            $screen->puts(($i + 1) . ". " . $options[$i]);
+        }
+        
+        $screen->at($height - 2, 0);
+        $screen->puts("Enter your choice (or first letter): ");
+        
+        my $input = $screen->getch();
+        
+        # Handle first letter shortcuts
+        if ($input =~ /^[adqh]$/i) {
+            if ($input =~ /^a$/i) { return 'attack'; }
+            if ($input =~ /^d$/i) { return 'defend'; }
+            if ($input =~ /^q$/i) { return 'quit'; }
+            if ($input =~ /^h$/i) { return 'help'; }
+        }
+        
+        # Handle numeric choice
+        if ($input =~ /^[1-4]$/) {
+            return $options[$input - 1];
+        }
+        
+        # Invalid input, return default
+        return 'attack';
+    }
+
+    # Display EV score summary
+    method display_score_summary($summary) {
+        return if $test_mode;
+        
+        # Start at a reasonable position
+        my $row = 12; # After entity status displays
+        
+        $screen->at($row, 0);
+        $screen->bold();
+        $screen->puts("EV Score Summary:");
+        $screen->normal();
+        
+        $screen->at(++$row, 2);
+        $screen->puts("Total Score: " . $summary->{total_score});
+        
+        $screen->at(++$row, 2);
+        $screen->puts("Best Decision: " . $summary->{best_decision});
+        
+        $screen->at(++$row, 2);
+        $screen->puts("Worst Decision: " . $summary->{worst_decision});
+        
+        # Update cursor position
+        $screen->at($row + 1, 0);
+        return $row + 1; # Return next row position
+    }
+
+    # Clean up and reset terminal
+    method cleanup() {
+        return if $test_mode;
+        
+        $screen->at($height - 1, 0);
+        $screen->clreos(); # Clear to end of screen
+        $screen->normal(); # Reset formatting
     }
 }
 
