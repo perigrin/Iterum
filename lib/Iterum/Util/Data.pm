@@ -7,9 +7,9 @@ use Path::Tiny;
 use JSON::MaybeXS qw(decode_json);
 use Exporter 'import';
 
-our @EXPORT_OK = qw(load_json_data);
+our @EXPORT_OK = qw(load_file load_json_data);
 
-sub load_json_data ($file) {
+sub load_file ($file) {
     try { $$file = dist_file($file) }
     catch ($e) {
 
@@ -17,7 +17,11 @@ sub load_json_data ($file) {
         $file = "share/$file";
     }
     die "Could not find EV lookup file ($file)" unless -e $file;
-    return decode_json path($file)->slurp;
+    return path($file)->slurp;
+}
+
+sub load_json_data ($file) {
+    return decode_json load_file($file);
 }
 
 1;

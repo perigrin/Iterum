@@ -17,12 +17,8 @@ class Iterum::Systems::Combat {
     field %targets;               # Current entity targets for attacks
     field %last_hit;              # Records if the last attack hit
     field %last_damage;           # Records damage dealt in last attack
-    field $ev_system;
 
-    ADJUST {
-        # Create EVScoring system
-        $ev_system = Iterum::Systems::EVScoring->new( ecs => $ecs, );
-    }
+    field $ev_system = Iterum::Systems::EVScoring->new( ecs => $ecs, );
 
     # Return the required components for this system
     method components_required {

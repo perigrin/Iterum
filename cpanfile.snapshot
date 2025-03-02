@@ -1,15 +1,5 @@
 # carton snapshot format: version 1.0
 DISTRIBUTIONS
-  Class-Inspector-1.36
-    pathname: P/PL/PLICEASE/Class-Inspector-1.36.tar.gz
-    provides:
-      Class::Inspector 1.36
-      Class::Inspector::Functions 1.36
-    requirements:
-      ExtUtils::MakeMaker 0
-      File::Spec 0.80
-      base 0
-      perl 5.008
   Cpanel-JSON-XS-4.39
     pathname: R/RU/RURBAN/Cpanel-JSON-XS-4.39.tar.gz
     provides:
@@ -147,42 +137,6 @@ DISTRIBUTIONS
       ExtUtils::MakeMaker 6.48
       Test::Simple 0.90
       perl 5.008001
-  File-ShareDir-1.118
-    pathname: R/RE/REHSACK/File-ShareDir-1.118.tar.gz
-    provides:
-      File::ShareDir 1.118
-    requirements:
-      Carp 0
-      Class::Inspector 1.12
-      ExtUtils::MakeMaker 0
-      File::ShareDir::Install 0.13
-      File::Spec 0.80
-      perl 5.008001
-      warnings 0
-  File-ShareDir-Dist-0.07
-    pathname: P/PL/PLICEASE/File-ShareDir-Dist-0.07.tar.gz
-    provides:
-      App::Prove::Plugin::ShareDirDist 0.07
-      App::Yath::Plugin::ShareDirDist 0.07
-      File::ShareDir::Dist 0.07
-      File::ShareDir::Dist::Install 0.07
-    requirements:
-      ExtUtils::MakeMaker 0
-      File::Copy 0
-      perl 5.008001
-  File-ShareDir-Install-0.14
-    pathname: E/ET/ETHER/File-ShareDir-Install-0.14.tar.gz
-    provides:
-      File::ShareDir::Install 0.14
-    requirements:
-      Carp 0
-      Exporter 0
-      ExtUtils::MakeMaker 0
-      File::Spec 0
-      IO::Dir 0
-      perl 5.006
-      strict 0
-      warnings 0
   File-ShareDir-Tiny-0.001
     pathname: L/LE/LEONT/File-ShareDir-Tiny-0.001.tar.gz
     provides:
@@ -193,20 +147,6 @@ DISTRIBUTIONS
       ExtUtils::MakeMaker 0
       File::Spec::Functions 0
       perl 5.006
-      strict 0
-      warnings 0
-  File-Slurper-0.014
-    pathname: L/LE/LEONT/File-Slurper-0.014.tar.gz
-    provides:
-      File::Slurper 0.014
-    requirements:
-      Carp 0
-      Encode 2.11
-      Exporter 5.57
-      ExtUtils::MakeMaker 0
-      PerlIO::encoding 0
-      constant 0
-      perl 5.008
       strict 0
       warnings 0
   JSON-MaybeXS-1.004008
@@ -247,9 +187,3 @@ DISTRIBUTIONS
       strict 0
       warnings 0
       warnings::register 0
-  TermReadKey-2.38
-    pathname: J/JS/JSTOWE/TermReadKey-2.38.tar.gz
-    provides:
-      Term::ReadKey 2.38
-    requirements:
-      ExtUtils::MakeMaker 6.58

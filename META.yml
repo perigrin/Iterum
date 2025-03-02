@@ -25,7 +25,6 @@ requires:
   File::ShareDir::Dist: '0'
   File::Slurper: '0'
   JSON::MaybeXS: '0'
-  Term::ReadKey: '0'
   Time::HiRes: '0'
   experimental: '0'
   perl: '5.40.0'

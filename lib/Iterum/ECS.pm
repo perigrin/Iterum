@@ -4,8 +4,6 @@ package Iterum::ECS;
 our $VERSION = '0.01';    # Initial version
 
 use experimental 'class';
-use File::ShareDir qw(dist_dir);
-use File::Spec;
 use Carp qw(croak);
 
 my sub uuid() {
@@ -33,27 +31,10 @@ my sub uuid() {
     return unpack( "H*", $uuid );
 }
 
-# Helper method to get share directory
-sub _share_dir {
-    my $file = shift;
-    
-    # During development, first try to find the file in the local share directory
-    my $dev_share = File::Spec->catfile('share', $file);
-    return $dev_share if -f $dev_share;
-    
-    # If installed as a distribution, use File::ShareDir
-    eval {
-        my $dist_dir = dist_dir('Iterum');
-        return File::Spec->catfile($dist_dir, $file);
-    };
-    
-    # If all else fails, return the file name and let the caller handle errors
-    return $file;
-}
-
 class Iterum::ECS {
     use DBI;
-    use JSON::MaybeXS qw(encode_json decode_json);
+    use JSON::MaybeXS      qw(encode_json decode_json);
+    use Iterum::Util::Data qw(load_file);
     use Time::HiRes;
 
     field $dsn :param = 'dbi:SQLite:dbname=:memory:';
@@ -67,13 +48,7 @@ class Iterum::ECS {
         }
     );
 
-    field $schema_file :param = _share_dir('schema.sql');
-    field $schema_sql :param = do {
-        open my $fh, '<', $schema_file 
-            or croak "Could not open schema file $schema_file: $!";
-        local $/;
-        <$fh>;
-    };
+    field $schema_sql :param = load_file('schema.sql');
 
     field @systems;
 
