@@ -51,13 +51,13 @@ class Iterum::Systems::UI::Display {
 
     # Helper methods to find specific entity types
     method find_player_entity() {
-        my @player_entities = $ecs->entites_for_components('Player');
+        my @player_entities = $ecs->entities_for_components('Player');
         return $player_entities[0] if @player_entities;
         return undef;
     }
 
     method find_enemy_entity() {
-        my @enemy_entities = $ecs->entites_for_components('Enemy');
+        my @enemy_entities = $ecs->entities_for_components('Enemy');
         return $enemy_entities[0] if @enemy_entities;
         return undef;
     }

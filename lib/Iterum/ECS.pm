@@ -152,7 +152,7 @@ class Iterum::ECS {
         INNER JOIN components c ON c.id = ec.component_id
     END_SQL
 
-    method entites_for_components(@types) {
+    method entities_for_components(@types) {
         my $sql = join "\nINTERSECT\n",
           map { ENTITIES_FOR_COMPONENTS_SQL . " WHERE c.label = ?" } @types;
         my $sth = $dbh->prepare_cached($sql);
@@ -168,7 +168,7 @@ class Iterum::ECS {
     method update() {
         for my $system (@systems) {
             my @components = $system->components_required;
-            my @e          = $self->entites_for_components(@components);
+            my @e          = $self->entities_for_components(@components);
             $system->set_entities(@e);
             $system->update( [ $self->get_components( \@e, @components ) ] );
         }

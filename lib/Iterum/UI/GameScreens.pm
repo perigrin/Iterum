@@ -1,4 +1,5 @@
 use 5.40.0;
+use utf8;
 use experimental 'class';
 
 # GameScreens module for Iterum roguelike
@@ -6,7 +7,6 @@ use experimental 'class';
 
 class Iterum::UI::GameScreens {
     use Term::ANSIColor;
-    use Term::Screen;
     
     field $cli :param :reader;  # CLI instance for rendering
     
@@ -44,47 +44,66 @@ class Iterum::UI::GameScreens {
          \$     \$$ |_  $$/   $$ \$$     \$$$$$$  \$$   \$$ \$$      \$$
     };
     
+    # Get buffer via CLI - using proper accessor
+    method _buffer() {
+        # Access the buffer through the CLI's buffer() method
+        return $cli->buffer();
+    }
+    
     # Display a decorative frame
     method _frame($title) {
+        my $buffer = $self->_buffer();
         my $term_width = $cli->width;
         my $horizontal_line = '═' x ($term_width - 4);
         my $title_line = '═' x (($term_width - length($title) - 8) / 2);
         
-        $cli->colored_puts('bright_blue', "╔$horizontal_line╗\n");
-        $cli->colored_puts('bright_blue', "║" . " " x ($term_width - 4) . "║\n");
-        $cli->colored_puts('bright_blue', "║ $title_line [ ");
-        $cli->colored_puts('bright_yellow', $title);
-        $cli->colored_puts('bright_blue', " ] $title_line");
+        # Draw top border
+        $buffer->draw_box(0, 0, $term_width, $cli->height, 'double');
+        
+        # Create title bar
+        my $title_bar = " $title_line [ $title ] $title_line";
         if (length($title_line) * 2 + length($title) + 8 < $term_width - 4) {
-            $cli->colored_puts('bright_blue', "═");
+            $title_bar .= "═";
         }
-        $cli->colored_puts('bright_blue', " ║\n");
-        $cli->colored_puts('bright_blue', "║" . " " x ($term_width - 4) . "║\n");
+        
+        $buffer->put_string(2, 2, $title_bar);
+        $buffer->refresh();
     }
     
-    # Close the decorative frame
+    # Close the decorative frame (now handled by the buffer's box drawing)
     method _close_frame() {
-        my $term_width = $cli->width;
-        my $horizontal_line = '═' x ($term_width - 4);
-        $cli->colored_puts('bright_blue', "║" . " " x ($term_width - 4) . "║\n");
-        $cli->colored_puts('bright_blue', "╚$horizontal_line╝\n");
+        $self->_buffer()->refresh();
     }
-    
+
     # Display centered text
     method _centered_text($text, $color = 'white') {
+        my $buffer = $self->_buffer();
         my $term_width = $cli->width;
         my $padding = int(($term_width - length($text) - 4) / 2);
         $padding = 0 if $padding < 0;
         
-        $cli->colored_puts('bright_blue', "║");
-        $cli->colored_puts('bright_blue', " " x $padding);
-        $cli->colored_puts($color, $text);
-        $cli->colored_puts('bright_blue', " " x ($term_width - length($text) - $padding - 4));
-        $cli->colored_puts('bright_blue', "║\n");
+        my $y = $buffer->cy();
+        $buffer->put_string($y, $padding + 2, $text, $self->_get_attrs_for_color($color));
+        $buffer->at($y + 1, 0); # Move to next line
+    }
+    
+    # Helper to convert color names to attribute hash
+    method _get_attrs_for_color($color) {
+        my %attrs;
+        
+        if ($color =~ /bright_/) {
+            $attrs{bold} = 1;
+            $color =~ s/bright_//;
+        }
+        
+        # More color handling can be added here
+        
+        return \%attrs;
     }
     
     # Display multi-line centered ASCII art
     method _display_ascii_art($art, $color = 'bright_cyan') {
+        my $buffer = $self->_buffer();
         my @lines = split /\n/, $art;
         my $max_length = 0;
         
@@ -94,25 +113,33 @@ class Iterum::UI::GameScreens {
         }
         
         my $term_width = $cli->width;
+        my $current_y = $buffer->cy();
+        
         for my $line (@lines) {
+            next unless length($line) > 0; # Skip empty lines
+            
             my $padding = int(($term_width - length($line) - 4) / 2);
             $padding = 1 if $padding < 1;
             
-            $cli->colored_puts('bright_blue', "║");
-            $cli->colored_puts('bright_blue', " " x $padding);
-            $cli->colored_puts($color, $line);
-            my $remaining = $term_width - length($line) - $padding - 4;
-            $remaining = 0 if $remaining < 0;
-            $cli->colored_puts('bright_blue', " " x $remaining);
-            $cli->colored_puts('bright_blue', "║\n");
+            $buffer->put_string($current_y, $padding + 2, $line, 
+                $self->_get_attrs_for_color($color));
+            $current_y++;
         }
+        
+        $buffer->at($current_y + 1, 0);
     }
     
     # Display the start screen
     method display_start_screen($version = '1.0.0') {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("ITERUM");
+        
+        $buffer->at(4, 0);
         $self->_display_ascii_art($logo, 'bright_green');
+        
+        $buffer->at($buffer->cy() + 1, 0);
         $self->_centered_text("", 'bright_white');
         $self->_centered_text("An EV-Based Decision Roguelike", 'bright_white');
         $self->_centered_text("Version $version", 'bright_white');
@@ -124,17 +151,20 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("[a] Attack  [d] Defend  [i] Use Item  [f] Flee", 'bright_cyan');
         $self->_centered_text("", 'bright_white');
         $self->_centered_text("Press any key to begin your adventure...", 'bright_green');
-        $self->_close_frame();
         
+        $buffer->refresh();
         $cli->get_input();
         return 1;
     }
     
     # Display help screen
     method display_help_screen() {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("HELP");
         
+        $buffer->at(4, 0);
         $self->_centered_text("GAME CONCEPTS", 'bright_yellow');
         $self->_centered_text("", 'white');
         $self->_centered_text("Expected Value (EV)", 'bright_cyan');
@@ -160,16 +190,19 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("", 'white');
         $self->_centered_text("Press any key to return...", 'bright_green');
         
-        $self->_close_frame();
+        $buffer->refresh();
         $cli->get_input();
         return 1;
     }
     
     # Display the victory screen with EV analysis
     method display_victory_screen($player_status, $enemy_name, $ev_system) {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("VICTORY");
         
+        $buffer->at(4, 0);
         $self->_display_ascii_art($victory, 'bright_yellow');
         $self->_centered_text("", 'white');
         $self->_centered_text("You have defeated the $enemy_name!", 'bright_green');
@@ -209,16 +242,19 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("", 'white');
         $self->_centered_text("Press any key to continue...", 'bright_green');
         
-        $self->_close_frame();
+        $buffer->refresh();
         $cli->get_input();
         return 1;
     }
     
     # Display the defeat screen with EV analysis
     method display_defeat_screen($player_status, $enemy_name, $ev_system) {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("DEFEAT");
         
+        $buffer->at(4, 0);
         $self->_display_ascii_art($game_over, 'bright_red');
         $self->_centered_text("", 'white');
         $self->_centered_text("You have been defeated by the $enemy_name!", 'bright_red');
@@ -256,16 +292,19 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("Even when defeated, the value of your decisions matters.", 'white');
         $self->_centered_text("Press any key to continue...", 'bright_green');
         
-        $self->_close_frame();
+        $buffer->refresh();
         $cli->get_input();
         return 1;
     }
     
     # Display game credits
     method display_credits() {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("CREDITS");
         
+        $buffer->at(4, 0);
         $self->_centered_text("ITERUM", 'bright_yellow');
         $self->_centered_text("An EV-Based Decision Roguelike", 'bright_cyan');
         $self->_centered_text("", 'white');
@@ -282,41 +321,38 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("", 'white');
         $self->_centered_text("Press any key to return...", 'bright_green');
         
-        $self->_close_frame();
+        $buffer->refresh();
         $cli->get_input();
         return 1;
     }
     
     # Display the EV stats during gameplay
     method display_ev_stats($player_id, $ev_system) {
+        my $buffer = $self->_buffer();
         my $stats = $ev_system->get_decision_stats($player_id);
         my $avg_score = $stats->{overall_avg} // 0;
         
         my $term_width = $cli->width;
-        my $horizontal_line = '─' x ($term_width - 4);
         
-        $cli->colored_puts('bright_blue', "┌$horizontal_line┐\n");
-        $cli->colored_puts('bright_blue', "│");
-        $cli->colored_puts('bright_yellow', " EV Score: ");
+        # Draw box for EV stats
+        $buffer->draw_box($cli->height - 3, 2, $term_width - 4, 3, 'single');
         
-        my $score_color = 'bright_red';
-        $score_color = 'bright_yellow' if $avg_score >= 40;
-        $score_color = 'bright_green' if $avg_score >= 70;
+        my $score_text = "EV Score: $avg_score";
+        my $padding = int(($term_width - length($score_text) - 8) / 2);
+        $buffer->put_string($cli->height - 2, $padding + 4, $score_text);
         
-        $cli->colored_puts($score_color, $avg_score);
-        
-        my $padding = $term_width - 15 - length($avg_score);
-        $cli->colored_puts('bright_blue', " " x $padding . "│\n");
-        $cli->colored_puts('bright_blue', "└$horizontal_line┘\n");
-        
+        $buffer->refresh();
         return 1;
     }
     
     # Play again prompt
     method play_again_prompt() {
+        my $buffer = $self->_buffer();
+        
         $cli->clear_screen();
         $self->_frame("GAME OVER");
         
+        $buffer->at(4, 0);
         $self->_centered_text("", 'white');
         $self->_centered_text("Would you like to play again?", 'bright_yellow');
         $self->_centered_text("", 'white');
@@ -325,7 +361,7 @@ class Iterum::UI::GameScreens {
         $self->_centered_text("[c] Credits - View game credits", 'bright_cyan');
         $self->_centered_text("", 'white');
         
-        $self->_close_frame();
+        $buffer->refresh();
         
         my $input = $cli->get_input();
         return $input;

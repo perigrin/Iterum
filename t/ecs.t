@@ -36,11 +36,11 @@ subtest 'Entity-Component Relationships' => sub {
     $ecs->new_component_type( 'TestComponent', 'A test component', {} );
     $ecs->add_component( $entity_id, 'TestComponent', { value => 'test' } );
 
-    my @entities = $ecs->entites_for_components('TestComponent');
+    my @entities = $ecs->entities_for_components('TestComponent');
     is( \@entities, [$entity_id], 'Entity can be found by component' );
 
     $ecs->remove_components( $entity_id, 'TestComponent' );
-    @entities = $ecs->entites_for_components('TestComponent');
+    @entities = $ecs->entities_for_components('TestComponent');
     is( \@entities, [], 'Component was removed from entity' );
 };
 
@@ -81,7 +81,7 @@ subtest 'Entity Destruction' => sub {
     $ecs->add_component( $entity_id, 'TestComponent', { value => 'test' } );
 
     $ecs->destroy_entity($entity_id);
-    my @entities = $ecs->entites_for_components('TestComponent');
+    my @entities = $ecs->entities_for_components('TestComponent');
     is( \@entities, [], 'Entity was destroyed' );
 };
 
