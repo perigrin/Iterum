@@ -79,8 +79,8 @@ subtest 'EV Score Calculation' => sub {
     # Test attack EV calculation - Player at good health, enemy at low health
     my $attack_ev = $ev_system->calculate_ev( $player_id, $enemy_id, 'attack' );
 
-    # Base attack score: 50, opponent_health_below_30_percent: +30
-    is( $attack_ev, 80, 'Attack EV calculated correctly for low health enemy' );
+    # Base attack score: 55, opponent_health_below_30_percent: +35
+    is( $attack_ev, 90, 'Attack EV calculated correctly for low health enemy' );
 
     # Change player health to below 30%
     Iterum::Components::Health::damage( $ecs, $player_id, 60 );  # Now at 20/100
@@ -88,16 +88,14 @@ subtest 'EV Score Calculation' => sub {
     # Test attack EV again - Player at low health, enemy at low health
     $attack_ev = $ev_system->calculate_ev( $player_id, $enemy_id, 'attack' );
 
-# Base attack score: 50, health_below_30_percent: -20, opponent_health_below_30_percent: +30
-    is( $attack_ev, 60,
-        'Attack EV calculated correctly for low health player and enemy' );
+    # Base attack score: 55, health_below_30_percent: -25, opponent_health_below_30_percent: +35
+    is( $attack_ev, 65, 'Attack EV calculated correctly for low health player and enemy' );
 
     # Test defend EV - Player at low health, enemy at low health
     my $defend_ev = $ev_system->calculate_ev( $player_id, $enemy_id, 'defend' );
 
-# Base defend score: 40, health_below_30_percent: +30, opponent_health_below_30_percent: -10
-    is( $defend_ev, 60,
-        'Defend EV calculated correctly for low health player and enemy' );
+    # Base defend score: 45, health_below_30_percent: +35, opponent_health_below_30_percent: -15
+    is( $defend_ev, 65, 'Defend EV calculated correctly for low health player and enemy' );
 
     # Put player in defensive stance
     Iterum::Components::CombatStats::set_defending( $ecs, $player_id, 1 );
@@ -105,9 +103,8 @@ subtest 'EV Score Calculation' => sub {
     # Test defend EV again - Player already defending
     $defend_ev = $ev_system->calculate_ev( $player_id, $enemy_id, 'defend' );
 
-# Base defend score: 40, health_below_30_percent: +30, opponent_health_below_30_percent: -10, already_defending: -30
-    is( $defend_ev, 30,
-        'Defend EV correctly penalized when already defending' );
+    # Base defend score: 45, health_below_30_percent: +35, opponent_health_below_30_percent: -15, already_defending: -35
+    is( $defend_ev, 30, 'Defend EV correctly penalized when already defending' );
 };
 
 # Test recording decisions
@@ -157,7 +154,7 @@ subtest 'Recording Player Decisions' => sub {
     is( $ev_score->{current_decision}->{target},
         $enemy_id, 'Target is recorded correctly' );
     is( $ev_score->{current_decision}->{ev_score},
-        80, 'EV score is calculated and recorded' );
+        90, 'EV score is calculated and recorded' );
     is( scalar @{ $ev_score->{decisions} },
         1, 'Decision history contains one entry' );
 

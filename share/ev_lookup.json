@@ -1,38 +1,56 @@
 {
   "attack": {
-    "base_score": 50,
+    "base_score": 55,
     "modifiers": {
-      "health_below_30_percent": -20,
-      "opponent_health_below_30_percent": 30,
-      "defensive_stance": -10,
-      "attack_advantage": 15,
-      "attack_disadvantage": -15
+      "health_below_30_percent": -25,
+      "health_below_50_percent": -10,
+      "opponent_health_below_30_percent": 35,
+      "opponent_health_below_50_percent": 15,
+      "defensive_stance": -15,
+      "attack_advantage": 20,
+      "attack_disadvantage": -20,
+      "opponent_is_fleeing": 10,
+      "outnumbered": -15,
+      "consecutive_attacks": -5
     }
   },
   "defend": {
-    "base_score": 40,
+    "base_score": 45,
     "modifiers": {
-      "health_below_30_percent": 30,
-      "opponent_health_below_30_percent": -10,
-      "already_defending": -30,
-      "opponent_attack_high": 20
+      "health_below_30_percent": 35,
+      "health_below_50_percent": 20,
+      "opponent_health_below_30_percent": -15,
+      "opponent_attack_high": 25,
+      "already_defending": -35,
+      "consecutive_defends": -10,
+      "outnumbered": 20,
+      "opponent_is_aggressive": 15
     }
   },
   "use_item": {
-    "base_score": 30,
+    "base_score": 35,
     "modifiers": {
-      "health_below_30_percent": 40,
-      "healing_item_when_full": -25,
-      "buff_item_against_weak_enemy": -10,
-      "no_items": -100
+      "health_below_30_percent": 45,
+      "health_below_50_percent": 20,
+      "healing_item_when_full": -30,
+      "buff_item_against_weak_enemy": -15,
+      "debuff_item_against_strong_enemy": 25,
+      "no_items": -100,
+      "item_advantage": 30,
+      "wrong_item_type": -25
     }
   },
   "flee": {
-    "base_score": 20,
+    "base_score": 25,
     "modifiers": {
-      "health_below_30_percent": 60,
-      "opponent_health_below_30_percent": -30,
-      "already_tried_fleeing": -15
+      "health_below_30_percent": 65,
+      "health_below_50_percent": 25,
+      "opponent_health_below_30_percent": -35,
+      "opponent_health_below_50_percent": -15,
+      "already_tried_fleeing": -20,
+      "outnumbered": 30,
+      "opponent_is_aggressive": 15,
+      "valuable_loot_nearby": -25
     }
   }
 }
