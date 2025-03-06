@@ -36,6 +36,9 @@ class Iterum::UI::CLI {
     field $debug_show_regions_active =
       0;                             # Flag for toggling region visualization
     field $debug_regions = {};       # Store defined UI regions for debugging
+    field $debug_log = [];           # Array to store debug operations
+    field $debug_log_enabled = 0;    # Flag to enable/disable debug logging
+    field $debug_log_max_entries = 1000; # Maximum number of log entries to keep
 
     # Buffer accessor
     method buffer() {
@@ -51,6 +54,14 @@ class Iterum::UI::CLI {
         
         # Initialize UI regions for debugging
         $self->_init_debug_regions();
+        
+        # Check for debug environment variable
+        if ($ENV{ITERUM_DEBUG}) {
+            $debug_log_enabled = 1;
+            $logger->info("Debug logging enabled via environment variable");
+            # Initialize with a snapshot
+            $self->debug_snapshot("CLI initialization");
+        }
 
         $logger->info("CLI initialized with dimensions: ${width}x${height}");
     }
@@ -72,7 +83,14 @@ class Iterum::UI::CLI {
               { row => $height - 3, col => 0, width => $width, height => 3 },
         };
 
-        $logger->debug("Default UI regions initialized");
+        $logger->debug("Default UI regions initialized:");
+        foreach my $region_name (sort keys %$debug_regions) {
+            my $r = $debug_regions->{$region_name};
+            $logger->debug("  $region_name: row=$r->{row}, col=$r->{col}, width=$r->{width}, height=$r->{height}");
+        }
+        
+        # Log this operation
+        $self->_log_operation('_init_debug_regions', 'Initial regions defined');
     }
 
     # Toggle UI region visualization
@@ -81,16 +99,80 @@ class Iterum::UI::CLI {
 
         if ($debug_show_regions_active) {
             $logger->info("Region visualization enabled");
+            $self->_log_operation('debug_toggle_regions', 'enabled');
             $self->debug_show_regions();
         }
         else {
             $logger->info("Region visualization disabled");
+            $self->_log_operation('debug_toggle_regions', 'disabled');
 
             # Refresh to clear the visualization
             $buffer->refresh();
         }
 
         return $debug_show_regions_active;
+    }
+    
+    # Toggle debug logging
+    method debug_toggle_log() {
+        # Store the previous state
+        my $was_enabled = $debug_log_enabled;
+        
+        # Toggle state
+        $debug_log_enabled = !$debug_log_enabled;
+        
+        if ($debug_log_enabled) {
+            $logger->info("Debug logging enabled");
+            # Add first entry directly since logging wasn't enabled before
+            push @$debug_log, {
+                type => 'operation',
+                data => {
+                    method => 'debug_toggle_log',
+                    args => ['enabled'],
+                    timestamp => time(),
+                }
+            };
+            $self->debug_snapshot("Debug logging enabled");
+        } else {
+            $logger->info("Debug logging disabled");
+            # Add final entry before disabling
+            push @$debug_log, {
+                type => 'operation',
+                data => {
+                    method => 'debug_toggle_log',
+                    args => ['disabled'],
+                    timestamp => time(),
+                }
+            };
+            # Offer to dump the log when disabling
+            $self->dump_debug_log();
+        }
+        
+        # Return 1 for enabled, 0 for disabled - the NEW state
+        return $debug_log_enabled ? 1 : 0;
+    }
+    
+    # Helper method to log operations
+    method _log_operation($method, @args) {
+        return unless $debug_log_enabled;
+        
+        # Create operation log entry
+        my $entry = {
+            type => 'operation',
+            data => {
+                method => $method,
+                args => \@args,
+                timestamp => time(),
+            }
+        };
+        
+        # Add to debug log
+        push @$debug_log, $entry;
+        
+        # Trim log if it gets too large
+        shift @$debug_log while @$debug_log > $debug_log_max_entries;
+        
+        return 1;
     }
 
     # Display UI regions with labeled boxes
@@ -148,9 +230,88 @@ class Iterum::UI::CLI {
         return $state;
     }
 
+    # Create a debug snapshot of the current state
+    method debug_snapshot($label = '') {
+        # Create a snapshot of the current state regardless of logging status
+        my $snapshot = {
+            timestamp => time(),
+            label => $label,
+            cursor => { x => $buffer->x(), y => $buffer->y() },
+            screen_size => { width => $width, height => $height },
+            regions => { %$debug_regions },  # Copy of current regions
+        };
+        
+        # Only add to log if debug logging is enabled
+        if ($debug_log_enabled) {
+            # Add to debug log
+            push @$debug_log, { type => 'snapshot', data => $snapshot };
+            
+            # Trim log if it gets too large
+            shift @$debug_log while @$debug_log > $debug_log_max_entries;
+            
+            $logger->debug("Debug snapshot captured: $label");
+        }
+        
+        return $snapshot;
+    }
+
     # Access to debug regions - useful for testing
     method debug_get_regions() {
         return $debug_regions;
+    }
+    
+    # Dump debug log to a file
+    method dump_debug_log($filename = '') {
+        # Default filename if not provided
+        $filename ||= "iterum_debug_log_" . time() . ".txt";
+        
+        # Create the log content
+        my $log_content = "=== ITERUM DEBUG LOG ===\n";
+        $log_content .= "Generated: " . scalar(localtime) . "\n";
+        $log_content .= "Terminal size: ${width}x${height}\n\n";
+        
+        foreach my $entry (@$debug_log) {
+            $log_content .= "[$entry->{type}] ";
+            
+            if ($entry->{type} eq 'operation') {
+                $log_content .= "$entry->{data}{method}(";
+                $log_content .= join(", ", @{$entry->{data}{args}}) if $entry->{data}{args};
+                $log_content .= ") @ " . scalar(localtime($entry->{data}{timestamp})) . "\n";
+            }
+            elsif ($entry->{type} eq 'snapshot') {
+                my $snap = $entry->{data};
+                $log_content .= "$snap->{label} @ " . scalar(localtime($snap->{timestamp})) . "\n";
+                $log_content .= "  Cursor: ($snap->{cursor}{x}, $snap->{cursor}{y})\n";
+                
+                # Add region info if available
+                if ($snap->{regions}) {
+                    $log_content .= "  Regions:\n";
+                    foreach my $name (sort keys %{$snap->{regions}}) {
+                        my $r = $snap->{regions}{$name};
+                        $log_content .= "    $name: row=$r->{row}, col=$r->{col}, ";
+                        $log_content .= "width=$r->{width}, height=$r->{height}\n";
+                    }
+                }
+                $log_content .= "\n";
+            }
+            else {
+                # Generic entry format for other types
+                use Data::Dumper;
+                $log_content .= Data::Dumper->Dump([$entry->{data}], ['data']) . "\n";
+            }
+        }
+        
+        # Write to file
+        open my $fh, '>', $filename or do {
+            $logger->error("Failed to open debug log file '$filename': $!");
+            return 0;
+        };
+        
+        print $fh $log_content;
+        close $fh;
+        
+        $logger->info("Debug log written to '$filename'. Contains " . scalar(@$debug_log) . " entries.");
+        return 1;
     }
 
     # Add or update a UI region definition for debugging
@@ -374,6 +535,9 @@ class Iterum::UI::CLI {
 
     method display_header($text) {
         $logger->debug("Displaying header: $text");
+        
+        # Log this operation
+        $self->_log_operation('display_header', $text);
 
         $buffer->at( 0, 0 );
         $buffer->put_string( 0, 0, "=== $text ", { bold => 1 } );
@@ -402,6 +566,15 @@ class Iterum::UI::CLI {
               . " and enemy: "
               . ( $enemy && ref $enemy eq 'HASH' ? $enemy->{name} : 'unknown' )
         );
+        
+        # Log this operation
+        $self->_log_operation('display_status',
+            player => ($player && ref $player eq 'HASH' ? $player->{name} : 'unknown'),
+            enemy => ($enemy && ref $enemy eq 'HASH' ? $enemy->{name} : 'unknown')
+        );
+        
+        # Take a debug snapshot
+        $self->debug_snapshot("display_status called");
 
         # Display header
         $self->display_header("ITERUM - COMBAT");
@@ -423,6 +596,12 @@ class Iterum::UI::CLI {
     method display_combat_options($options) {
         $logger->debug(
             "Displaying combat options: " . scalar(@$options) . " options" );
+            
+        # Log this operation
+        $self->_log_operation('display_combat_options', scalar(@$options) . ' options');
+        
+        # Take a debug snapshot
+        $self->debug_snapshot("display_combat_options called");
 
         # Get the combat_options region for positioning
         my $region = $self->get_region('combat_options');
@@ -1192,10 +1371,16 @@ class Iterum::UI::CLI {
             while ( !$valid ) {
                 $input = $buffer->getch();
 
-                # Handle debug key for region toggling
+                # Handle debug keys for region toggling and logging
                 if ( $input eq '`' ) {
                     $logger->debug("Debug key pressed - toggling regions");
                     $self->debug_toggle_regions();
+                    $buffer->at( $input_region->{row}, $input_region->{col} + 32 );    # Reset cursor
+                    next;
+                }
+                elsif ( $input eq '~' ) {
+                    $logger->debug("Debug log key pressed - toggling debug logging");
+                    $self->debug_toggle_log();
                     $buffer->at( $input_region->{row}, $input_region->{col} + 32 );    # Reset cursor
                     next;
                 }
@@ -1250,10 +1435,15 @@ class Iterum::UI::CLI {
 
             my $input = $buffer->getch();
 
-            # Handle debug key for region toggling
+            # Handle debug keys for region toggling and logging
             if ( $input eq '`' ) {
                 $logger->debug("Debug key pressed - toggling regions");
                 $self->debug_toggle_regions();
+                return $self->get_input();  # Call recursively to get the next key
+            }
+            elsif ( $input eq '~' ) {
+                $logger->debug("Debug log key pressed - toggling debug logging");
+                $self->debug_toggle_log();
                 return $self->get_input();  # Call recursively to get the next key
             }
 
@@ -1269,10 +1459,15 @@ class Iterum::UI::CLI {
 
         my $input = $buffer->getch();
 
-        # Handle debug key for region toggling
+        # Handle debug keys for region toggling and logging
         if ( $input eq '`' ) {
             $logger->debug("Debug key pressed - toggling regions");
             $self->debug_toggle_regions();
+            return $self->prompt_continue();  # Call recursively to get the next key
+        }
+        elsif ( $input eq '~' ) {
+            $logger->debug("Debug log key pressed - toggling debug logging");
+            $self->debug_toggle_log();
             return $self->prompt_continue();  # Call recursively to get the next key
         }
 
@@ -1282,6 +1477,9 @@ class Iterum::UI::CLI {
     # Display a title
     method display_title($title) {
         $logger->debug("display_title: $title");
+        
+        # Log this operation
+        $self->_log_operation('display_title', $title);
 
         # Use Clay to create a centered title
         my $padding = int( ( $width - length($title) ) / 2 );
@@ -1411,10 +1609,15 @@ class Iterum::UI::CLI {
 
         my $input = $buffer->getch();
 
-        # Handle debug key for region toggling
+        # Handle debug keys for region toggling and logging
         if ( $input eq '`' ) {
             $logger->debug("Debug key pressed - toggling regions");
             $self->debug_toggle_regions();
+            return $self->get_combat_action();  # Call recursively to get the next key
+        }
+        elsif ( $input eq '~' ) {
+            $logger->debug("Debug log key pressed - toggling debug logging");
+            $self->debug_toggle_log();
             return $self->get_combat_action();  # Call recursively to get the next key
         }
 
