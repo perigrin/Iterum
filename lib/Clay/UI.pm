@@ -48,21 +48,23 @@ my $__ALIGN_LEFT     = $ALIGN_LEFT;
 # Exports the main UI functions
 
 # Create a new context
-sub create_context($screen) {
+sub create_context( $screen = Term::Screen->new ) {
+
     # Create a context with screen dimensions
-    my $width = $screen->cols;
+    my $width  = $screen->cols;
     my $height = $screen->rows;
-    
+
     # Create a buffer with the screen
-    my $buffer = Clay::Buffer->new(screen => $screen);
-    
+    my $buffer = Clay::Buffer->new( screen => $screen );
+
     # Create layout dimensions as a separate object
-    my $layout_dimensions = Clay::Types::Size->new(width => $width, height => $height);
-    
+    my $layout_dimensions =
+      Clay::Types::Size->new( width => $width, height => $height );
+
     # Then create context with buffer and layout dimensions
     # Don't pass the screen parameter directly to Context constructor
     return Clay::Context->new(
-        buffer => $buffer,
+        buffer            => $buffer,
         layout_dimensions => $layout_dimensions
     );
 }
