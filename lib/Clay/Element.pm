@@ -1,15 +1,16 @@
-
 use 5.40.0;
 use warnings;
 use experimental qw(class);
-use Term::ANSIColor;
+
 use Clay::Types::Color;
 use Clay::Types::BorderConfig;
 use Clay::Types::BorderRadius;
 use Clay::Types::Size;
-use Clay::Builder;
+use Clay::Logger;
 
 class Clay::Element {
+    use Carp       qw(croak);
+    use List::Util qw(maxstr);
 
     # Import the necessary constants
     use Clay::Types::LayoutConfig qw(
@@ -22,40 +23,26 @@ class Clay::Element {
       $ALIGN_LEFT $ALIGN_RIGHT $ALIGN_CENTER
     );
 
-    # Make these variables available to the class
-    my $__LEFT_TO_RIGHT = $LEFT_TO_RIGHT;
-    my $__TOP_TO_BOTTOM = $TOP_TO_BOTTOM;
-    my $__WRAP_NONE     = $WRAP_NONE;
-    my $__WRAP_NEWLINES = $WRAP_NEWLINES;
-    my $__WRAP_WORDS    = $WRAP_WORDS;
-    my $__ALIGN_CENTER  = $ALIGN_CENTER;
-    my $__ALIGN_RIGHT   = $ALIGN_RIGHT;
-    my $__ALIGN_BOTTOM  = $ALIGN_BOTTOM;
-
     # Define the element class
     state $i = 0;
     field $id :param :reader            = 'element-' . $i++;    # Element ID
     field $layout_config :param :reader = Clay::Types::LayoutConfig->new();
-    field $children :param :reader      = [];    # Child elements
-    field $text :param :reader          = '';    # Text content if text element
-    field $text_config :param :reader =
-      undef;    # Text configuration - optional with default
+    field $children :param :reader      = [];     # Child elements
+    field $text :param :reader          = undef;  # Text content if text element
+    field $text_config :param :reader      = Clay::Types::TextConfig->new();
     field $background_color :param :reader = Clay::Types::Color->new();
     field $border_config :param :reader    = Clay::Types::BorderConfig->new();
     field $border_radius :param :reader    = Clay::Types::BorderRadius->new();
-    field $image_data :param :reader =
-      undef;    # Image data (not fully supported) - optional with default
-    field $custom_data :param :reader =
-      undef;    # Custom user data - optional with default
-    field $user_data :param :reader =
-      undef;    # User data passed to renderer - optional with default
+    field $image_data :param :reader       = undef;
+    field $custom_data :param :reader      = undef;
+    field $user_data :param :reader        = undef;
 
-    field $parent :reader;          # Parent element reference
-    field $bounding_box;            # Calculated bounding box
-    field $content_size;            # Calculated content size
-    field $is_text_element = 0;     # Flag for text elements
-    field $wrapped_lines   = [];    # For text wrapping
-    method wrapped_lines( $lines = $wrapped_lines ) { $wrapped_lines = $lines; }
+    field $parent :reader;                        # Parent element reference
+    field $bounding_box = Clay::Types::Rect->new();    # Calculated bounding box
+    field $content_size = Clay::Types::Size->new();
+    field $is_text_element :reader = defined $text;
+
+    field $logger = Clay::Logger->instance();
 
     ADJUST {
         # Set parent references for all children
@@ -64,22 +51,8 @@ class Clay::Element {
         }
 
         # Mark as text element if text is provided
-        $is_text_element = length($text) > 0;
-        if ($is_text_element) {
-
-            if ( !$text_config ) {
-                $text_config = Clay::Types::TextConfig->new(
-                    color => Clay::Types::Color->new(
-                        r          => 255,
-                        g          => 255,
-                        b          => 255,
-                        foreground => 1
-                    )
-                );
-            }
-            elsif ( !blessed($text_config) ) {
-                $text_config = Clay::Types::TextConfig->new(%$text_config);
-            }
+        if ( !blessed($text_config) && ref($text_config) eq 'HASH' ) {
+            $text_config = Clay::Types::TextConfig->new(%$text_config);
         }
     }
 
@@ -93,50 +66,54 @@ class Clay::Element {
         $parent = $new_parent;
     }
 
+    # DEPRECATED use $element->size instead
     method get_content_size() {
-        return $content_size || Clay::Types::Size->new();
+        return $content_size;
     }
 
-    method size($new_size = undef) {
+    method size( $new_size = undef ) {
+
         # If a new size is provided, set it
         if ($new_size) {
-            # Ensure proper handling if passed a hashref instead of a Size object
-            if (ref($new_size) eq 'HASH') {
+
+           # Ensure proper handling if passed a hashref instead of a Size object
+            if ( ref($new_size) eq 'HASH' ) {
                 $content_size = Clay::Types::Size->new(%$new_size);
-            } else {
+            }
+            else {
                 $content_size = $new_size;
             }
-            return $self;
         }
 
         # Return the current size, or a new empty size if not set
-        return $content_size || Clay::Types::Size->new();
+        return $content_size;
     }
 
     method set_bounding_box($box) {
         $bounding_box = $box;
     }
 
-    method get_bounding_box() {
-        return $bounding_box || Clay::Types::Rect->new();
+    method get_bounding_box( $box = undef ) {
+        if ( ref($box) eq 'HASH' ) {
+            $box = Clay::Types::Rect->new(%$box);
+        }
+        if ($box) {
+            $bounding_box = $box;
+        }
+        return $bounding_box;
     }
 
+    # Measure with buffer - used by the 7-phase layout algorithm
     method measure( $available_width, $available_height ) {
-        if ($is_text_element) {
-            return $self->measure_text($available_width);
-        }
-
         my $content_width  = 0;
         my $content_height = 0;
 
         # Layout children based on direction
-        if ( $layout_config->layout_direction eq $__LEFT_TO_RIGHT ) {
-
-            # Horizontal layout
+        if ( $layout_config->is_horizontal ) {    # Horizontal layout
             foreach my $child (@$children) {
                 my $child_size = $child->measure(
                     $available_width - $layout_config->padding->horizontal(),
-                    $available_height - $layout_config->padding->vertical()
+                    $available_height - $layout_config->padding->vertical(),
                 );
                 $content_width += $child_size->width;
                 $content_height = $child_size->height
@@ -148,13 +125,17 @@ class Clay::Element {
               $layout_config->child_gap * ( scalar(@$children) - 1 )
               if @$children > 1;
         }
-        else {    # $TOP_TO_BOTTOM
-                  # Vertical layout
+        else {    # Vertical layout
             foreach my $child (@$children) {
-                my $child_size = $child->measure(
+                my $child_size =
+                  $child->is_text_element
+                  ? $child->measure_text(
+                    $available_width - $layout_config->padding->horizontal(), )
+                  : $child->measure(
                     $available_width - $layout_config->padding->horizontal(),
-                    $available_height - $layout_config->padding->vertical()
-                );
+                    $available_height - $layout_config->padding->vertical(),
+                  );
+
                 $content_height += $child_size->height;
                 $content_width = $child_size->width
                   if $child_size->width > $content_width;
@@ -172,6 +153,7 @@ class Clay::Element {
         my $height = $layout_config->effective_height( $available_height,
             $content_height );
 
+        # Store the content size for later use by the layout phases
         $content_size = Clay::Types::Size->new(
             width  => $content_width,
             height => $content_height
@@ -180,174 +162,44 @@ class Clay::Element {
         return Clay::Types::Size->new( width => $width, height => $height );
     }
 
+    # Fixed measure_text method with improved text width handling
     method measure_text($available_width) {
-        $wrapped_lines = [];
 
-        # Simple text wrapping
-        Carp::confess "not a text element" . Data::Dumper::Dumper($text_config)
-          unless blessed($text_config);
-        if ( $text_config->wrap_mode eq $__WRAP_NONE ) {
-            push @$wrapped_lines, $text;
-            return Clay::Types::Size->new(
-                width  => length($text),
-                height => 1
-            );
-        }
-
+        # Calculate padding-adjusted width
         my $max_line_width =
           $available_width - $layout_config->padding->horizontal();
-        my $height = 0;
-        my $width  = 0;
+        $max_line_width = $layout_config->sizing_width_min
+          if $max_line_width < $layout_config->sizing_width_min;
 
-        if ( $text_config->wrap_mode eq $__WRAP_NEWLINES ) {
+        my @wrapped_lines = $text_config->wrap_text( $text, $max_line_width );
 
-            # Split only on newlines
-            my @lines = split /\n/, $text;
-            foreach my $line (@lines) {
-                push @$wrapped_lines, $line;
-                $width = length($line) if length($line) > $width;
-            }
-            $height = scalar(@lines);
-        }
-        else {    # $WRAP_WORDS
-                  # Split on words and wrap
-            my @words        = split /\s+/, $text;
-            my $current_line = '';
-
-            foreach my $word (@words) {
-
-                # If adding this word would exceed width, start a new line
-                if (
-                    length($current_line) + length($word) + 1 > $max_line_width
-                    && length($current_line) > 0 )
-                {
-                    push @$wrapped_lines, $current_line;
-                    $width = length($current_line)
-                      if length($current_line) > $width;
-                    $current_line = $word;
-                }
-                else {
-                    $current_line .=
-                      ( length($current_line) > 0 ? ' ' : '' ) . $word;
-                }
-            }
-
-            # Add the last line
-            if ( length($current_line) > 0 ) {
-                push @$wrapped_lines, $current_line;
-                $width = length($current_line)
-                  if length($current_line) > $width;
-            }
-
-            $height = scalar(@$wrapped_lines);
+        # Apply line_height if specified
+        my $height = scalar(@wrapped_lines);
+        if ( $text_config->line_height ) {
+            $height *= $text_config->line_height;
         }
 
-        # Use line_height if specified
-        $height =
-          $text_config->line_height > 0 ? $text_config->line_height : $height;
+        # CRITICAL FIX: Ensure we have a reasonable text width based on content
+        my $padding        = $layout_config->padding;
+        my $min_line_width = $layout_config->sizing_width_min;
+        my $width          = length maxstr @wrapped_lines;
+        if ( $width < $min_line_width ) {
+            $width = $min_line_width - $padding->horizontal();
+        }
 
-        return Clay::Types::Size->new( width => $width, height => $height );
-    }
+        my $min_height = $layout_config->sizing_height_min;
+        if ( $height < $min_height ) {
+            $height = $min_height - $padding->vertical();
+        }
 
-    method layout( $x, $y, $width, $height ) {
-
-        # Set this element's bounding box
-        $self->set_bounding_box(
-            Clay::Types::Rect->new(
-                x      => $x,
-                y      => $y,
-                width  => $width,
-                height => $height
-            )
+        return Clay::Types::Size->new(
+            width  => $width,
+            height => $height
         );
-
-        if ( $is_text_element || scalar(@$children) == 0 ) {
-            return;
-        }
-
-        # Layout children based on direction
-        my $child_x = $x + $layout_config->padding->left;
-        my $child_y = $y + $layout_config->padding->top;
-
-        my $inner_width  = $width - $layout_config->padding->horizontal();
-        my $inner_height = $height - $layout_config->padding->vertical();
-
-        my $content_width  = $content_size->width;
-        my $content_height = $content_size->height;
-
-        # Apply alignment for extra space
-        my $extra_x = 0;
-        my $extra_y = 0;
-
-        if ( $inner_width > $content_width ) {
-            if ( $layout_config->alignment_x eq $__ALIGN_CENTER ) {
-                $extra_x = ( $inner_width - $content_width ) / 2;
-            }
-            elsif ( $layout_config->alignment_x eq $__ALIGN_RIGHT ) {
-                $extra_x = $inner_width - $content_width;
-            }
-        }
-
-        if ( $inner_height > $content_height ) {
-            if ( $layout_config->alignment_y eq $__ALIGN_CENTER ) {
-                $extra_y = ( $inner_height - $content_height ) / 2;
-            }
-            elsif ( $layout_config->alignment_y eq $__ALIGN_BOTTOM ) {
-                $extra_y = $inner_height - $content_height;
-            }
-        }
-
-        $child_x += $extra_x;
-        $child_y += $extra_y;
-
-        if ( $layout_config->layout_direction eq $__LEFT_TO_RIGHT ) {
-
-            # Horizontal layout
-            foreach my $child (@$children) {
-                my $child_size   = $child->get_content_size();
-                my $child_width  = $child->get_bounding_box()->width;
-                my $child_height = $child->get_bounding_box()->height;
-
-                # Align vertically
-                my $y_pos = $child_y;
-                if ( $layout_config->alignment_y eq $__ALIGN_CENTER ) {
-                    $y_pos = $child_y + ( $inner_height - $child_height ) / 2;
-                }
-                elsif ( $layout_config->alignment_y eq $__ALIGN_BOTTOM ) {
-                    $y_pos = $child_y + $inner_height - $child_height;
-                }
-
-                $child->layout( $child_x, $y_pos, $child_width, $child_height );
-                $child_x += $child_width + $layout_config->child_gap;
-            }
-        }
-        else {    # $TOP_TO_BOTTOM
-                  # Vertical layout
-            foreach my $child (@$children) {
-                my $child_size   = $child->get_content_size();
-                my $child_width  = $child->get_bounding_box()->width;
-                my $child_height = $child->get_bounding_box()->height;
-
-                # Align horizontally
-                my $x_pos = $child_x;
-                if ( $layout_config->alignment_x eq $__ALIGN_CENTER ) {
-                    $x_pos = $child_x + ( $inner_width - $child_width ) / 2;
-                }
-                elsif ( $layout_config->alignment_x eq $__ALIGN_RIGHT ) {
-                    $x_pos = $child_x + $inner_width - $child_width;
-                }
-
-                $child->layout( $x_pos, $child_y, $child_width, $child_height );
-                $child_y += $child_height + $layout_config->child_gap;
-            }
-        }
     }
 
     method generate_render_commands( $parent_z_index = 0 ) {
         my @commands;
-
-        # Skip if element is off-screen
-        # We'd add culling here for performance
 
         # Add rectangle command if has background color
         if ( $background_color && $background_color->a > 0 ) {
@@ -363,52 +215,87 @@ class Clay::Element {
 
         # Add border command if has border
         if ( $border_config && $border_config->has_border() ) {
-            push @commands,
-              {
-                type    => 'border',
-                rect    => $bounding_box,
-                config  => $border_config,
-                radius  => $border_radius,
-                z_index => $parent_z_index
-              };
-        }
 
-        # Add text command if text element
-        if ($is_text_element) {
-            for ( my $i = 0 ; $i < scalar(@$wrapped_lines) ; $i++ ) {
-                my $line_y = $bounding_box->y + $i;
-                my $line   = $wrapped_lines->[$i];
-                my $line_x = $bounding_box->x;
-
-                # Apply text alignment
-                if ( $text_config->text_alignment eq $__ALIGN_CENTER ) {
-                    $line_x = $bounding_box->x +
-                      int( ( $bounding_box->width - length($line) ) / 2 );
-                }
-                elsif ( $text_config->text_alignment eq $__ALIGN_RIGHT ) {
-                    $line_x =
-                      $bounding_box->x + $bounding_box->width - length($line);
-                }
-
+            # CRITICAL FIX: Skip borders that are too small
+            if ( $bounding_box->width > 1 && $bounding_box->height > 1 ) {
                 push @commands,
                   {
-                    type     => 'text',
-                    position =>
-                      Clay::Types::Point->new( x => $line_x, y => $line_y ),
-                    text    => $line,
-                    config  => $text_config,
+                    type    => 'border',
+                    rect    => $bounding_box,
+                    config  => $border_config,
+                    radius  => $border_radius,
                     z_index => $parent_z_index + 1
                   };
             }
         }
 
-        # Generate commands for children
-        foreach my $child (@$children) {
-            push @commands,
-              @{ $child->generate_render_commands($parent_z_index) };
+        # Add text command if text element
+        if ($is_text_element) {
+
+            my @wrapped_lines = $text_config->wrap_text( $text,
+                $bounding_box->width - $layout_config->padding->horizontal() );
+
+            # Calculate the total height of text content
+            my $text_height = scalar(@wrapped_lines);
+
+            # Apply line_height if specified
+            if ( $text_config->line_height ) {
+                $text_height *= $text_config->line_height;
+            }
+
+            # Calculate the starting y position based on vertical alignment
+            my $start_y = $bounding_box->y - $layout_config->padding->top;
+
+            # Apply vertical alignment
+            my $available_height =
+              $bounding_box->height - $layout_config->padding->vertical();
+
+            if ( $layout_config->alignment_y eq $ALIGN_CENTER ) {
+                $start_y += int( ( $available_height - $text_height ) / 2 );
+            }
+            elsif ( $layout_config->alignment_y eq $ALIGN_BOTTOM ) {
+                $start_y += $available_height - $text_height;
+            }
+
+            my $i = 0;
+
+            # Generate commands for each line of text
+            for my $line (@wrapped_lines) {
+                my $line_y = $start_y + $text_height * $i++;
+                my $line_x = $bounding_box->x + $layout_config->padding->left;
+
+                # Available width for text needs to account for padding
+                my $available_width =
+                  $bounding_box->width - $layout_config->padding->horizontal();
+
+                # Apply horizontal text alignment
+                if ( $text_config->text_alignment eq $ALIGN_CENTER ) {
+                    $line_x += int( ( $available_width - length($line) ) / 2 );
+                }
+                elsif ( $text_config->text_alignment eq $ALIGN_RIGHT ) {
+                    $line_x += $available_width - length($line);
+                }
+
+                # CRITICAL FIX: Ensure z-index is high enough to be on top
+                push @commands, {
+                    type     => 'text',
+                    position => Clay::Types::Point->new(
+                        x => $line_x,
+                        y => $line_y
+                    ),
+                    text    => $line,
+                    config  => $text_config,
+                    z_index => $parent_z_index + 1    # Higher z-index for text
+                };
+            }
         }
 
-        return \@commands;
+        # Generate commands for children with incremented z-index
+        push @commands,
+          map { $_->generate_render_commands( $parent_z_index + 2 ) }
+          @$children;
+
+        return @commands;
     }
 }
 

@@ -7,16 +7,12 @@ class Iterum::UI::CLI {
 
     use File::Spec;
     use Clay;
-    use Clay::Context;
-    use Clay::Types;
-    use Clay::Builder;
-    use Clay::UI;
 
     # Clay infrastructure
-    field $context =
-      Clay::Context->new();    # Clay context (creates its own buffer)
-    field $commands = [];      # Current rendering commands
-    field $ui_layout;          # Root UI layout element
+    field $context = create_context();
+
+    field $commands = [];    # Current rendering commands
+    field $ui_layout;        # Root UI layout element
 
     # Message system
     field $messages      = [];    # Array to store message history
@@ -35,68 +31,62 @@ class Iterum::UI::CLI {
 
     # Create the UI layout structure
     method create_layout() {
-
-        # Use Clay's layout system to define UI regions
-        $ui_layout = Clay::Builder::ElementBuilder->new(
-            context => $context,
-            config  => {
-                id       => 'root',
-                layout   => 'vertical',
-                children => [
-                    {
-                        id     => 'header',
-                        height => 1,
-                        layout => 'horizontal',
-                    },
-                    {
-                        id     => 'title',
-                        height => 1,
-                    },
-                    {
-                        id       => 'status_area',
-                        layout   => 'horizontal',
-                        height   => 4,
-                        children => [
-                            {
-                                id    => 'player',
-                                width => 0.5,        # 50% of parent width
-                            },
-                            {
-                                id    => 'enemy',
-                                width => 0.5,        # 50% of parent width
-                            },
-                        ],
-                    },
-                    {
-                        id   => 'messages',
-                        flex => 1,            # Take available space
-                    },
-                    {
-                        id       => 'feedback_area',
-                        layout   => 'horizontal',
-                        height   => 5,
-                        children => [
-                            {
-                                id    => 'combat_options',
-                                width => 0.5,              # 50% of parent width
-                            },
-                            {
-                                id    => 'ev_feedback',
-                                width => 0.5,              # 50% of parent width
-                            },
-                        ],
-                    },
-                    {
-                        id     => 'result',
-                        height => 4,
-                    },
-                    {
-                        id     => 'input',
-                        height => 1,
-                    },
-                ],
-            },
-        );
+        my $root = create_root $context => {
+            layout   => 'vertical',
+            children => [
+                {
+                    id     => 'header',
+                    height => 1,
+                    layout => 'horizontal',
+                },
+                {
+                    id     => 'title',
+                    height => 1,
+                },
+                {
+                    id       => 'status_area',
+                    layout   => 'horizontal',
+                    height   => 4,
+                    children => [
+                        {
+                            id    => 'player',
+                            width => 0.5,        # 50% of parent width
+                        },
+                        {
+                            id    => 'enemy',
+                            width => 0.5,        # 50% of parent width
+                        },
+                    ],
+                },
+                {
+                    id   => 'messages',
+                    flex => 1,            # Take available space
+                },
+                {
+                    id       => 'feedback_area',
+                    layout   => 'horizontal',
+                    height   => 5,
+                    children => [
+                        {
+                            id    => 'combat_options',
+                            width => 0.5,                # 50% of parent width
+                        },
+                        {
+                            id    => 'ev_feedback',
+                            width => 0.5,                # 50% of parent width
+                        },
+                    ],
+                },
+                {
+                    id     => 'result',
+                    height => 4,
+                },
+                {
+                    id     => 'input',
+                    height => 1,
+                },
+            ],
+        };
 
         # Calculate layout based on current terminal size
         $ui_layout->calculate_layout();

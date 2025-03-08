@@ -52,6 +52,11 @@ class Clay::Types::LayoutConfig {
     field $alignment_y :param :reader      = $ALIGN_TOP;
     field $layout_direction :param :reader = $LEFT_TO_RIGHT;
 
+    method is_horizontal() {
+        return $layout_direction eq $LEFT_TO_RIGHT
+          || $layout_direction eq $RIGHT_TO_LEFT;
+    }
+
     method effective_width( $available_width, $content_width ) {
         if ( $sizing_width_type eq $SIZING_FIXED ) {
             return $sizing_width_value;

@@ -2,6 +2,7 @@ package Clay::UI;
 use 5.40.0;
 use Clay::Util;
 use Clay::Context;
+use Clay::Builder;
 use Clay::Types::LayoutConfig qw(
   $SIZING_FIXED $SIZING_GROW $SIZING_PERCENT $SIZING_FIT
   $LEFT_TO_RIGHT $RIGHT_TO_LEFT $TOP_TO_BOTTOM $BOTTOM_TO_TOP
@@ -35,58 +36,60 @@ our @EXPORT = qw(
   text_config
 );
 
-# Make these variables available to the subs
-my $__SIZING_FIXED   = $SIZING_FIXED;
-my $__SIZING_GROW    = $SIZING_GROW;
-my $__SIZING_PERCENT = $SIZING_PERCENT;
-my $__SIZING_FIT     = $SIZING_FIT;
-my $__LEFT_TO_RIGHT  = $LEFT_TO_RIGHT;
-my $__TOP_TO_BOTTOM  = $TOP_TO_BOTTOM;
-my $__WRAP_WORDS     = $WRAP_WORDS;
-my $__ALIGN_LEFT     = $ALIGN_LEFT;
-
-# Exports the main UI functions
-
-# Create a new context
-sub create_context( $screen = Term::Screen->new ) {
-
-    # Create a context with screen dimensions
-    my $width  = $screen->cols;
-    my $height = $screen->rows;
+# Create a new context with proper buffer
+sub create_context( $args = {} ) {
 
     # Create a buffer with the screen
-    my $buffer = Clay::Buffer->new( screen => $screen );
+    my $buffer = $args->{buffer} // Clay::Buffer->new(%$args);
 
     # Create layout dimensions as a separate object
-    my $layout_dimensions =
-      Clay::Types::Size->new( width => $width, height => $height );
+    my $layout_dimensions = Clay::Types::Size->new(
+        width  => $buffer->width,
+        height => $buffer->height
+    );
 
-    # Then create context with buffer and layout dimensions
-    # Don't pass the screen parameter directly to Context constructor
-    return Clay::Context->new(
+    # Create context with buffer and layout dimensions
+    my $context = Clay::Context->new(
         buffer            => $buffer,
         layout_dimensions => $layout_dimensions
+    );
+
+    return $context;
+}
+
+sub create_element( $context, $config = {} ) {
+
+    # Process children if any
+    if ( exists $config->{children} && ref $config->{children} eq 'ARRAY' ) {
+        for my $i ( 0 .. $#{ $config->{children} } ) {
+            my $child_conf = $config->{children}[$i];
+            $config->{children}[$i] =
+              create_element( $context, $child_conf )->element;
+        }
+    }
+
+    return Clay::Builder::ElementBuilder->new(
+        context => $context,
+        config  => $config
     );
 }
 
 # Create a root element
-sub create_root( $context, $config = { id => 'root' } ) {
-    $config->{id} //= 'root';
-    my $root_builder = Clay::Builder::ElementBuilder->new(
-        context => $context,
-        config  => $config
-    );
+sub create_root( $context, $builder = undef ) {
+    unless ( $builder && $builder isa Clay::Builder::ElementBuilder ) {
+        $builder = create_element( $context, $builder );
+    }
 
     # Set as the root of the context
-    $context->element_tree( $root_builder->element );
+    $context->element_tree( $builder->element );
 
-    return $root_builder;
+    return $builder;
 }
 
 # Layout helper functions
 sub sizing_fit( $min = 0, $max = 1000 ) {
     return {
-        sizing_width_type => $__SIZING_FIT,
+        sizing_width_type => $SIZING_FIT,
         sizing_width_min  => $min,
         sizing_width_max  => $max
     };
@@ -94,7 +97,7 @@ sub sizing_fit( $min = 0, $max = 1000 ) {
 
 sub sizing_grow( $min = 0, $max = 1000 ) {
     return {
-        sizing_width_type => $__SIZING_GROW,
+        sizing_width_type => $SIZING_GROW,
         sizing_width_min  => $min,
         sizing_width_max  => $max
     };
@@ -102,26 +105,25 @@ sub sizing_grow( $min = 0, $max = 1000 ) {
 
 sub sizing_fixed($value) {
     return {
-        sizing_width_type  => $__SIZING_FIXED,
+        sizing_width_type  => $SIZING_FIXED,
         sizing_width_value => $value
     };
 }
 
 sub sizing_percent($percent) {
     return {
-        sizing_width_type  => $__SIZING_PERCENT,
+        sizing_width_type  => $SIZING_PERCENT,
         sizing_width_value => $percent
     };
 }
 
 # Color helpers
-sub color( $r, $g, $b, $a = 255, $foreground = 0 ) {
+sub color( $r, $g, $b, $a = 255 ) {
     return Clay::Types::Color->new(
-        r          => $r,
-        g          => $g,
-        b          => $b,
-        a          => $a,
-        foreground => $foreground
+        r => $r,
+        g => $g,
+        b => $b,
+        a => $a,
     );
 }
 
@@ -155,7 +157,7 @@ sub layout_horizontal( $config = {} ) {
     return Clay::Util::with_defaults(
         $config,
         {
-            layout_direction => $__LEFT_TO_RIGHT
+            layout_direction => $LEFT_TO_RIGHT
         }
     );
 }
@@ -164,20 +166,25 @@ sub layout_vertical( $config = {} ) {
     return Clay::Util::with_defaults(
         $config,
         {
-            layout_direction => $__TOP_TO_BOTTOM
+            layout_direction => $TOP_TO_BOTTOM
         }
     );
 }
 
-# Border helpers
-sub border_all( $width, $color ) {
+sub border( $left, $right, $top, $bottom, $color, $style = 'single' ) {
     return Clay::Types::BorderConfig->new(
         color        => $color,
-        width_left   => $width,
-        width_right  => $width,
-        width_top    => $width,
-        width_bottom => $width
+        width_left   => $left,
+        width_right  => $right,
+        width_top    => $top,
+        width_bottom => $bottom,
+        style        => $style
     );
+}
+
+# Border helpers
+sub border_all( $width, $color, $style = 'single' ) {
+    return border( $width, $width, $width, $width, $color, $style );
 }
 
 sub border_box($color) {
@@ -200,8 +207,8 @@ sub text_config( $color, $config = {} ) {
         $config,
         {
             color          => $color,
-            wrap_mode      => $__WRAP_WORDS,
-            text_alignment => $__ALIGN_LEFT
+            wrap_mode      => $WRAP_WORDS,
+            text_alignment => $ALIGN_LEFT
         }
     );
 }
