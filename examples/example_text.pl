@@ -2,8 +2,6 @@
 use 5.40.0;
 use warnings;
 use utf8;
-use Term::ReadKey;
-use Term::Screen;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -13,58 +11,68 @@ binmode(STDOUT, ":utf8");
 # Import Clay modules
 use Clay;
 
-# Create screen and context
-my $screen = Term::Screen->new();
-my $context = create_context($screen);
+# Create context
+my $context = create_context();
 
-# Instructions
-print "This example demonstrates text rendering.\n";
-print "The text 'Hello, World!' will be rendered at position (10,5).\n";
-print "Press any key to continue...\n";
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
+my $root = create_root(
+    $context,
+    {
+        id => 'root',
+        layout_config => Clay::Types::LayoutConfig->new(
+            sizing_width_type => $SIZING_GROW,
+            sizing_height_type => $SIZING_GROW,
+            layout_direction => $TOP_TO_BOTTOM,
+            padding => padding_all(2),
+            child_gap => 2,
+            alignment_x => $ALIGN_CENTER,
+            alignment_y => $ALIGN_CENTER
+        ),
+        background_color => color(30, 30, 30),
+        children => [
+            {
+                id => 'text1',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIT,
+                    sizing_height_type => $SIZING_FIT,
+                ),
+                text => 'Hello, World!',
+                text_config => text_config(color_white(1)),
+            },
+            {
+                id => 'text2',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIT,
+                    sizing_height_type => $SIZING_FIT,
+                ),
+                text => 'Green Text!',
+                text_config => text_config(color_green(1)),
+            },
+            {
+                id => 'instructions',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIT,
+                    sizing_height_type => $SIZING_FIT,
+                    padding => padding_all(1),
+                ),
+                text => 'Text rendered. Press any key to exit...',
+                text_config => text_config(color_white(1)),
+            }
+        ],
+    }
+);
 
-# Clear screen first
-$context->clear();
+while (1) {
+    if ($context->layout()) {
+        $context->render();
+    }
+    
+    if ($context->key_pressed()) {
+        # Exit on any key press
+        last;
+    }
+    
+    # Small delay to prevent excessive CPU usage
+    select(undef, undef, undef, 0.05);
+}
 
-# Create text command
-my $text_cmd = {
-    type => 'text',
-    position => Clay::Types::Point->new(x => 10, y => 5),
-    text => 'Hello, World!',
-    config => Clay::Types::TextConfig->new(
-        color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
-    ),
-};
-
-# Render the text
-$context->_render_text($text_cmd);
-
-# Create another text with different color
-my $text_cmd2 = {
-    type => 'text',
-    position => Clay::Types::Point->new(x => 10, y => 7),
-    text => 'Green Text!',
-    config => Clay::Types::TextConfig->new(
-        color => Clay::Types::Color->new(r => 0, g => 255, b => 0),
-    ),
-};
-
-# Render the second text
-$context->_render_text($text_cmd2);
-
-# Display instructions at the bottom of the screen
-$context->_render_text({
-    type => 'text',
-    position => Clay::Types::Point->new(x => 1, y => 20),
-    text => 'Text rendered. Press any key to exit...',
-    config => Clay::Types::TextConfig->new(
-        color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
-    ),
-});
-
-# Wait for key press to exit
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
+__END__

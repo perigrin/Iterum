@@ -129,27 +129,27 @@ sub color( $r, $g, $b, $a = 255 ) {
 
 # Common colors
 sub color_black( $foreground = 0 ) {
-    return color( 0, 0, 0, 255, $foreground );
+    return color( 0, 0, 0, 255 );
 }
 
 sub color_white( $foreground = 0 ) {
-    return color( 255, 255, 255, 255, $foreground );
+    return color( 255, 255, 255, 255 );
 }
 
 sub color_red( $foreground = 0 ) {
-    return color( 255, 0, 0, 255, $foreground );
+    return color( 255, 0, 0, 255 );
 }
 
 sub color_green( $foreground = 0 ) {
-    return color( 0, 255, 0, 255, $foreground );
+    return color( 0, 255, 0, 255 );
 }
 
 sub color_blue( $foreground = 0 ) {
-    return color( 0, 0, 255, 255, $foreground );
+    return color( 0, 0, 255, 255 );
 }
 
 sub color_yellow( $foreground = 0 ) {
-    return color( 255, 255, 0, 255, $foreground );
+    return color( 255, 255, 0, 255 );
 }
 
 # Layout helpers

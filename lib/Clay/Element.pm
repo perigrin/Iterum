@@ -47,6 +47,9 @@ class Clay::Element {
     ADJUST {
         # Set parent references for all children
         foreach my $child (@$children) {
+            unless ( $child isa __PACKAGE__ ) {
+                $child = Clay::Element->new(%$child);
+            }
             $child->set_parent($self);
         }
 
@@ -57,6 +60,9 @@ class Clay::Element {
     }
 
     method add_child($child) {
+        unless ( $child isa __PACKAGE__ ) {
+            $child = Clay::Element->new(%$child);
+        }
         push @$children, $child;
         $child->set_parent($self);
         return $self;

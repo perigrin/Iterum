@@ -11,6 +11,17 @@ class Clay::Builder::ElementBuilder {
     field $parent_builder :param = undef;
     field $closed = 0;
 
+    ADJUST {
+        unless ( $element isa Clay::Element ) {
+            if ( ref $element eq 'HASH' ) {
+                $element = Clay::Element->new(%$element);
+            }
+            else {
+                $element = Clay::Element->new(%$config);
+            }
+        }
+    }
+
     method begin() {
         return $self;
     }

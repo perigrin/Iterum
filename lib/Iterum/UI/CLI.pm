@@ -9,10 +9,9 @@ class Iterum::UI::CLI {
     use Clay;
 
     # Clay infrastructure
-    field $context = create_context();
-
+    field $context :reader = create_context();
+    field $root;             # Root UI element
     field $commands = [];    # Current rendering commands
-    field $ui_layout;        # Root UI layout element
 
     # Message system
     field $messages      = [];    # Array to store message history
@@ -31,87 +30,156 @@ class Iterum::UI::CLI {
 
     # Create the UI layout structure
     method create_layout() {
-        my $root = create_root $context => {
-            layout   => 'vertical',
-            children => [
-                {
-                    id     => 'header',
-                    height => 1,
-                    layout => 'horizontal',
-                },
-                {
-                    id     => 'title',
-                    height => 1,
-                },
-                {
-                    id       => 'status_area',
-                    layout   => 'horizontal',
-                    height   => 4,
-                    children => [
-                        {
-                            id    => 'player',
-                            width => 0.5,        # 50% of parent width
-                        },
-                        {
-                            id    => 'enemy',
-                            width => 0.5,        # 50% of parent width
-                        },
-                    ],
-                },
-                {
-                    id   => 'messages',
-                    flex => 1,            # Take available space
-                },
-                {
-                    id       => 'feedback_area',
-                    layout   => 'horizontal',
-                    height   => 5,
-                    children => [
-                        {
-                            id    => 'combat_options',
-                            width => 0.5,                # 50% of parent width
-                        },
-                        {
-                            id    => 'ev_feedback',
-                            width => 0.5,                # 50% of parent width
-                        },
-                    ],
-                },
-                {
-                    id     => 'result',
-                    height => 4,
-                },
-                {
-                    id     => 'input',
-                    height => 1,
-                },
-            ],
-        };
-
-        # Calculate layout based on current terminal size
-        $ui_layout->calculate_layout();
+        $root = create_root(
+            $context,
+            {
+                id            => 'root',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type  => $SIZING_GROW,
+                    sizing_height_type => $SIZING_GROW,
+                    layout_direction   => $TOP_TO_BOTTOM,
+                    padding            => padding_all(1),
+                    child_gap          => 1,
+                ),
+                border_config => border_box( color( 200, 200, 200 ) ),
+                children      => [
+                    {
+                        id            => 'header',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 1,
+                            layout_direction    => $LEFT_TO_RIGHT,
+                        ),
+                    },
+                    {
+                        id            => 'title',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 1,
+                        ),
+                    },
+                    {
+                        id            => 'status_area',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 4,
+                            layout_direction    => $LEFT_TO_RIGHT,
+                            child_gap           => 2,
+                        ),
+                        children => [
+                            {
+                                id            => 'player',
+                                layout_config => Clay::Types::LayoutConfig->new(
+                                    sizing_width_type  => $SIZING_FIXED,
+                                    sizing_width_value => 40,
+                                    sizing_height_type => $SIZING_GROW,
+                                ),
+                                border_config =>
+                                  border_all( 1, color( 100, 100, 200 ) ),
+                            },
+                            {
+                                id            => 'enemy',
+                                layout_config => Clay::Types::LayoutConfig->new(
+                                    sizing_width_type  => $SIZING_FIXED,
+                                    sizing_width_value => 40,
+                                    sizing_height_type => $SIZING_GROW,
+                                ),
+                                border_config =>
+                                  border_all( 1, color( 200, 100, 100 ) ),
+                            },
+                        ],
+                    },
+                    {
+                        id            => 'messages',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type  => $SIZING_GROW,
+                            sizing_height_type => $SIZING_GROW,
+                        ),
+                        border_config =>
+                          border_all( 1, color( 150, 150, 150 ) ),
+                    },
+                    {
+                        id            => 'feedback_area',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 5,
+                            layout_direction    => $LEFT_TO_RIGHT,
+                            child_gap           => 2,
+                        ),
+                        children => [
+                            {
+                                id            => 'combat_options',
+                                layout_config => Clay::Types::LayoutConfig->new(
+                                    sizing_width_type  => $SIZING_FIXED,
+                                    sizing_width_value => 40,
+                                    sizing_height_type => $SIZING_GROW,
+                                ),
+                                border_config =>
+                                  border_all( 1, color( 100, 200, 100 ) ),
+                            },
+                            {
+                                id            => 'ev_feedback',
+                                layout_config => Clay::Types::LayoutConfig->new(
+                                    sizing_width_type  => $SIZING_FIXED,
+                                    sizing_width_value => 40,
+                                    sizing_height_type => $SIZING_GROW,
+                                ),
+                                border_config =>
+                                  border_all( 1, color( 200, 200, 100 ) ),
+                            },
+                        ],
+                    },
+                    {
+                        id            => 'result',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 4,
+                        ),
+                        border_config =>
+                          border_all( 1, color( 150, 150, 150 ) ),
+                    },
+                    {
+                        id            => 'input',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type   => $SIZING_GROW,
+                            sizing_height_type  => $SIZING_FIXED,
+                            sizing_height_value => 1,
+                        ),
+                    },
+                ],
+            }
+        );
     }
 
     # ========================
     # Input Handling Methods
     # ========================
 
-    # Get a single keystroke (encapsulating buffer access)
+    # Get a single keystroke
     method read_key() {
-        return $context->buffer->getch();
+        if ( $context->key_pressed() ) {
+            return $context->get_key();
+        }
+        return '';
     }
 
     # Check if a key is pressed
     method key_pressed( $timeout = 0 ) {
-        return $context->buffer->key_pressed($timeout);
+        return $context->key_pressed($timeout);
     }
 
     # ========================
     # Color Handling Functions
     # ========================
 
-    # Convert a color name to a Clay::Types::Color object
-    method color( $name = 'white' ) {
+    # Convert a color name to RGB values for Clay's color function
+    # Renamed to get_color to avoid conflict with Clay's color function
+    method get_color( $name = 'white' ) {
 
         # Default color map for common names
         my %color_map = (
@@ -130,12 +198,8 @@ class Iterum::UI::CLI {
         # Get RGB values for the color name, default to white if not found
         my $rgb = $color_map{ lc($name) } // [ 255, 255, 255 ];
 
-        # Create and return a new Clay::Types::Color object
-        return Clay::Types::Color->new(
-            r => $rgb->[0],
-            g => $rgb->[1],
-            b => $rgb->[2]
-        );
+        # Return color using the Clay helper function
+        return color( $rgb->[0], $rgb->[1], $rgb->[2] );
     }
 
     # ========================
@@ -145,215 +209,39 @@ class Iterum::UI::CLI {
     # Clear the screen
     method clear() {
         $context->clear();
-        $commands = [];
         return $self;
+    }
+
+    # Alias for compatibility with existing code
+    method clear_screen() {
+        return $self->clear();
     }
 
     # Refresh/render the screen
     method refresh() {
-        $context->commands($commands);
-        $context->render();
-        return $self;
-    }
-
-    # Add multiple commands to the context
-    method add_commands(@new_commands) {
-        push @$commands, @new_commands;
+        if ( $context->layout() ) {
+            $context->render();
+        }
         return $self;
     }
 
     # Find an element by ID
     method find_element($id) {
 
-       # Starting with the root layout, search for the element with the given ID
-        my $find_by_id = sub {
-            my ( $element, $target_id ) = @_;
+        # Simple recursive finder function
+        my $find_by_id = sub ( $elem, $search_id ) {
+            return $elem if $elem->id eq $search_id;
 
-            return $element if $element->{id} eq $target_id;
-
-            if ( $element->{children} ) {
-                for my $child ( @{ $element->{children} } ) {
-                    my $found = $find_by_id->( $child, $target_id );
+            if ( $elem->children ) {
+                for my $child ( $elem->children->@* ) {
+                    my $found = __SUB__->( $child, $search_id );
                     return $found if $found;
                 }
             }
-
             return undef;
         };
 
-        return $find_by_id->( $ui_layout, $id );
-    }
-
-    # Get the bounds of an element
-    method get_element_bounds($id) {
-        my $element = $self->find_element($id);
-        return undef unless $element;
-
-        # Get the element's computed bounds
-        return {
-            x      => $element->{computed_x},
-            y      => $element->{computed_y},
-            width  => $element->{computed_width},
-            height => $element->{computed_height},
-        };
-    }
-
-    # Draw a box around an element
-    method draw_box( $element_id, $style = 'single', $title = undef ) {
-        my $bounds = $self->get_element_bounds($element_id);
-        return $self unless $bounds;
-
-        # Determine border width based on style
-        my $border_width = ( $style eq 'double' ) ? 2 : 1;
-
-        # Create border command
-        my $box_command = {
-            type => 'border',
-            rect => Clay::Types::Rect->new(
-                x      => $bounds->{x},
-                y      => $bounds->{y},
-                width  => $bounds->{width},
-                height => $bounds->{height}
-            ),
-            config => Clay::Types::BorderConfig->new(
-                width_top    => $border_width,
-                width_right  => $border_width,
-                width_bottom => $border_width,
-                width_left   => $border_width,
-                color        => $self->color('white'),
-            ),
-            z_index => 1,
-        };
-
-        # Add the box command
-        push @$commands, $box_command;
-
-        # Add title if provided
-        if ( defined $title ) {
-
-            # Ensure title fits within the box
-            my $max_title_length = $bounds->{width} - 4;
-            my $display_title =
-              length($title) > $max_title_length
-              ? substr( $title, 0, $max_title_length - 3 ) . "..."
-              : $title;
-
-            # Add title text
-            push @$commands,
-              {
-                type     => 'text',
-                position => Clay::Types::Point->new(
-                    x => $bounds->{x} + 2,
-                    y => $bounds->{y}
-                ),
-                text   => $display_title,
-                config => Clay::Types::TextConfig->new(
-                    color => $self->color('white'),
-                    bold  => 1,
-                ),
-                z_index => 2,
-              };
-        }
-
-        return $self;
-    }
-
-    # Add text to an element with offset
-    method add_text_to_element( $element_id, $x_offset, $y_offset, $text,
-        $color_name = 'white',
-        $bold = 0 )
-    {
-        my $bounds = $self->get_element_bounds($element_id);
-        return $self unless $bounds;
-
-        push @$commands, {
-            type     => 'text',
-            position => Clay::Types::Point->new(
-                x => $bounds->{x} + $x_offset,
-                y => $bounds->{y} + $y_offset
-            ),
-            text   => $text,
-            config => Clay::Types::TextConfig->new(
-                color => $self->color($color_name),
-                bold  => $bold,
-                wrap => Clay::Types::WRAP_WORDS, # Let Clay handle text wrapping
-                width => $bounds->{width} - $x_offset -
-                  1,                             # Respect element boundaries
-            ),
-            z_index => 2,
-        };
-
-        return $self;
-    }
-
-    # Fill an element with a background color
-    method fill_element( $element_id, $color_name = 'black' ) {
-        my $bounds = $self->get_element_bounds($element_id);
-        return $self unless $bounds;
-
-        push @$commands,
-          {
-            type => 'rectangle',
-            rect => Clay::Types::Rect->new(
-                x      => $bounds->{x},
-                y      => $bounds->{y},
-                width  => $bounds->{width},
-                height => $bounds->{height}
-            ),
-            color   => $self->color($color_name),
-            z_index => 0,
-          };
-
-        return $self;
-    }
-
-    # Clear an element (fill with black background)
-    method clear_element($element_id) {
-        return $self->fill_element( $element_id, 'black' );
-    }
-
-    # =========================
-    # Rendering Helper Methods
-    # =========================
-
-    # Render to an element using a callback
-    method render_element( $element_id, $render_callback ) {
-        my $bounds = $self->get_element_bounds($element_id);
-        return $self unless $bounds;
-
-        # Clear the element first
-        $self->clear_element($element_id);
-
-        # Create a context object to pass to the callback
-        my $ctx = {
-            element_id => $element_id,
-            bounds     => $bounds,
-
-            # Helper for adding text within this element
-            add_text => sub {
-                my ( $x_offset, $y_offset, $text, $color = 'white', $bold = 0 )
-                  = @_;
-                $self->add_text_to_element( $element_id, $x_offset, $y_offset,
-                    $text, $color, $bold );
-            },
-
-            # Helper for drawing a box around this element
-            draw_box => sub {
-                my ( $style = 'single', $title = undef ) = @_;
-                $self->draw_box( $element_id, $style, $title );
-            },
-
-            # Helper for adding any command
-            add_command => sub {
-                my ($command) = @_;
-                push @$commands, $command;
-            },
-        };
-
-        # Call the render callback with our context
-        $render_callback->($ctx);
-
-        return $self;
+        return $find_by_id->( $root->element, $id );
     }
 
     # ==============================
@@ -362,41 +250,33 @@ class Iterum::UI::CLI {
 
     # Display a header
     method display_header($text) {
-        $self->render_element(
-            'header',
-            sub {
-                my $ctx = shift;
-
-                # Create header text with fill
-                my $header_text = "=== $text ";
-                my $remaining   = $ctx->{bounds}{width} - length($header_text);
-                $header_text .= "=" x $remaining if $remaining > 0;
-
-                # Display header
-                $ctx->add_text( 0, 0, $header_text, 'white', 1 );
-            }
-        );
-
+        my $header_element = $self->find_element('header');
+        if ($header_element) {
+            $header_element->add_child(
+                {
+                    text => "=== $text ===",
+                }
+            );
+        }
+        $self->refresh();
         return $self;
     }
 
     # Display a title
     method display_title($title) {
-        $self->render_element(
-            'title',
-            sub {
-                my $ctx = shift;
+        my $title_element = $self->find_element('title');
+        if ($title_element) {
+            $title_element->add_child( { text => $title } );
+        }
+        $self->refresh();
+        return $self;
+    }
 
-                # Calculate centering
-                my $padding =
-                  int( ( $ctx->{bounds}{width} - length($title) ) / 2 );
-                $padding = 0 if $padding < 0;
+    # Display text (compatibility method)
+    method display_text( $text, $color = 'white' ) {
 
-                # Display centered title
-                $ctx->add_text( $padding, 0, $title, 'white', 1 );
-            }
-        );
-
+        # Add the text as a message
+        $self->add_message( $text, 'info', $color );
         return $self;
     }
 
@@ -404,42 +284,60 @@ class Iterum::UI::CLI {
     method display_player($player) {
         return $self unless $player && ref $player eq 'HASH';
 
-        $self->render_element(
-            'player',
-            sub {
-                my $ctx = shift;
+        my $player_element = $self->find_element('player');
+        if ($player_element) {
 
-                # Display player name
-                $ctx->add_text( 0, 0, "Player: " . $player->{name}, 'white',
-                    1 );
+            # Calculate HP percentage for color
+            my $hp_percent =
+              $player->{health}{current_hp} / $player->{health}{max_hp};
+            my $hp_color =
+              $hp_percent > 0.7
+              ? color_green(1)
+              : ( $hp_percent > 0.3 ? color_yellow(1) : color_red(1) );
 
-                # Calculate HP percentage for color
-                my $hp_percent =
-                  $player->{health}{current_hp} / $player->{health}{max_hp};
-                my $hp_color =
-                  $hp_percent > 0.7
-                  ? 'green'
-                  : ( $hp_percent > 0.3 ? 'yellow' : 'red' );
+            $player_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 1,
+                    ),
+                    children => [
+                        {
+                            text        => "Player: " . $player->{name},
+                            text_config =>
+                              text_config( color_white(1), { bold => 1 } ),
+                        },
+                        {
+                            layout_config => Clay::Types::LayoutConfig->new(
+                                sizing_width_type  => $SIZING_GROW,
+                                sizing_height_type => $SIZING_FIT,
+                                layout_direction   => $LEFT_TO_RIGHT,
+                            ),
+                            children => [
+                                {
+                                    text => "HP: ",
+                                },
+                                {
+                                    text => $player->{health}{current_hp} . "/"
+                                      . $player->{health}{max_hp},
+                                }
+                            ]
+                        },
+                        {
+                                text => "ATK: "
+                              . $player->{stats}{attack}
+                              . " DEF: "
+                              . $player->{stats}{defense},
+                        }
+                    ]
+                }
+            );
+        }
 
-                # Display HP
-                $ctx->add_text( 2, 0, "HP: " );
-                $ctx->add_text(
-                    6,
-                    0,
-                    $player->{health}{current_hp} . "/"
-                      . $player->{health}{max_hp},
-                    $hp_color
-                );
-
-                # Display attack and defense stats
-                $ctx->add_text( 2, 1,
-                        "ATK: "
-                      . $player->{stats}{attack}
-                      . " DEF: "
-                      . $player->{stats}{defense} );
-            }
-        );
-
+        $self->refresh();
         return $self;
     }
 
@@ -447,49 +345,79 @@ class Iterum::UI::CLI {
     method display_enemy($enemy) {
         return $self unless $enemy && ref $enemy eq 'HASH';
 
-        $self->render_element(
-            'enemy',
-            sub {
-                my $ctx = shift;
+        my $enemy_element = $self->find_element('enemy');
+        if ($enemy_element) {
 
-                # Display enemy name
-                $ctx->add_text( 0, 0, "Enemy: " . $enemy->{name}, 'white', 1 );
+            # Calculate HP percentage for color
+            my $hp_percent =
+              $enemy->{health}{current_hp} / $enemy->{health}{max_hp};
+            my $hp_color =
+              $hp_percent > 0.7
+              ? color_green(1)
+              : ( $hp_percent > 0.3 ? color_yellow(1) : color_red(1) );
 
-                # Calculate HP percentage for color
-                my $hp_percent =
-                  $enemy->{health}{current_hp} / $enemy->{health}{max_hp};
-                my $hp_color =
-                  $hp_percent > 0.7
-                  ? 'green'
-                  : ( $hp_percent > 0.3 ? 'yellow' : 'red' );
+            $enemy_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 1,
+                    ),
+                    children => [
+                        {
+                            text        => "Enemy: " . $enemy->{name},
+                            text_config =>
+                              text_config( color_white(1), { bold => 1 } ),
+                        },
+                        {
+                            layout_config => Clay::Types::LayoutConfig->new(
+                                sizing_width_type  => $SIZING_GROW,
+                                sizing_height_type => $SIZING_FIT,
+                                layout_direction   => $LEFT_TO_RIGHT,
+                            ),
+                            children => [
+                                {
+                                    text        => "HP: ",
+                                    text_config =>
+                                      text_config( color_white(1) ),
+                                },
+                                {
+                                    text => $enemy->{health}{current_hp} . "/"
+                                      . $enemy->{health}{max_hp},
+                                    text_config => text_config($hp_color),
+                                }
+                            ]
+                        },
+                        {
+                            text => "ATK: "
+                              . $enemy->{stats}{attack}
+                              . " DEF: "
+                              . $enemy->{stats}{defense},
+                            text_config => text_config( color_white(1) ),
+                        }
+                    ]
+                }
+            );
+        }
 
-                # Display HP
-                $ctx->add_text( 2, 0, "HP: " );
-                $ctx->add_text(
-                    6,
-                    0,
-                    $enemy->{health}{current_hp} . "/"
-                      . $enemy->{health}{max_hp},
-                    $hp_color
-                );
-
-                # Display attack and defense stats
-                $ctx->add_text( 2, 1,
-                        "ATK: "
-                      . $enemy->{stats}{attack}
-                      . " DEF: "
-                      . $enemy->{stats}{defense} );
-            }
-        );
-
+        $self->refresh();
         return $self;
+    }
+
+    # Display entity status (compatibility method)
+    method display_entity_status($entity) {
+        if ( $entity->{type} eq 'player' ) {
+            return $self->display_player($entity);
+        }
+        else {
+            return $self->display_enemy($entity);
+        }
     }
 
     # Display combat status (player and enemy)
     method display_status( $player, $enemy ) {
-
-        # Clear the screen
-        $self->clear();
 
         # Display header
         $self->display_header("ITERUM - COMBAT");
@@ -565,101 +493,73 @@ class Iterum::UI::CLI {
         $self->add_message( $message, 'error', 'red' );
     }
 
-    # Display message history using Clay's text wrapping
+    # Alias for display_text
+    method display_message( $message, $color = 'white' ) {
+        return $self->add_message( $message, 'info', $color );
+    }
+
+    # Display message history
     method display_message_history() {
-        $self->render_element(
-            'messages',
-            sub {
-                my $ctx = shift;
+        my $messages_element = $self->find_element('messages');
+        if ($messages_element) {
+            my @message_children = ();
 
-                # Draw a box around the messages
-                $ctx->draw_box( 'double',
-                    "Messages (" . scalar(@$messages) . ")" );
+            # Process from newest to oldest
+            for ( my $i = $#$messages ; $i >= 0 ; $i-- ) {
+                my $msg = $messages->[$i];
 
-                # Calculate available display space
-                my $display_height =
-                  $ctx->{bounds}{height} - 2;    # Account for borders
-                my $msg_idx = scalar(@$messages) - 1;
+                # Format prefix based on message type
+                my $prefix = '';
 
-                # Display messages from newest to oldest
-                my $y_offset   = $display_height - 1;    # Start from bottom
-                my $msgs_shown = 0;
-
-                while ( $msg_idx >= 0 && $y_offset >= 1 ) {
-                    my $msg = $messages->[$msg_idx];
-
-                    # Format prefix based on message type
-                    my $prefix = '';
-                    my $color  = $msg->{color} || 'white';
-
-                    if ( $msg->{type} eq 'combat' ) {
-                        $prefix = "[Combat] ";
-                    }
-                    elsif ( $msg->{type} eq 'ev' ) {
-                        $prefix = "[EV] ";
-                    }
-                    elsif ( $msg->{type} eq 'system' ) {
-                        $prefix = "[System] ";
-                    }
-                    elsif ( $msg->{type} eq 'error' ) {
-                        $prefix = "[Error] ";
-                        $color  = 'red' unless $color ne 'white';
-                    }
-
-                    # Add count if more than 1
-                    my $count_suffix =
-                      $msg->{count} > 1 ? " (x$msg->{count})" : "";
-
-                    # Format timestamp if enabled
-                    my $time_prefix = "";
-                    if ($timestamp_display) {
-                        my $elapsed = time() - $msg->{timestamp};
-                        if ( $elapsed < 60 ) {
-                            $time_prefix = "[$elapsed" . "s] ";
-                        }
-                        else {
-                            my $min = int( $elapsed / 60 );
-                            $time_prefix = "[$min" . "m] ";
-                        }
-                    }
-
-                    # Combine all parts
-                    my $full_msg =
-                      $time_prefix . $prefix . $msg->{content} . $count_suffix;
-
-                    # Let Clay handle text wrapping
-                    # Add with proper configuration for wrapping
-                    push @$commands, {
-                        type     => 'text',
-                        position => Clay::Types::Point->new(
-                            x => $ctx->{bounds}{x} + 2,
-                            y => $ctx->{bounds}{y} + $y_offset
-                        ),
-                        text   => $full_msg,
-                        config => Clay::Types::TextConfig->new(
-                            color => $self->color($color),
-                            wrap  => Clay::Types::WRAP_WORDS,
-                            width => $ctx->{bounds}{width} -
-                              4,    # Account for borders and padding
-                        ),
-                        z_index => 2,
-                    };
-
-        # Approximate space taken by this message (for positioning next message)
-        # In a real implementation, Clay would track this for us
-                    my $approx_lines =
-                      int( length($full_msg) / ( $ctx->{bounds}{width} - 4 ) )
-                      + 1;
-                    $y_offset -= $approx_lines;
-
-                    $msg_idx--;
-                    $msgs_shown++;
-
-                    # Stop if we've run out of vertical space
-                    last if $y_offset < 1;
+                if ( $msg->{type} eq 'combat' ) {
+                    $prefix = "[Combat] ";
                 }
+                elsif ( $msg->{type} eq 'ev' ) {
+                    $prefix = "[EV] ";
+                }
+                elsif ( $msg->{type} eq 'system' ) {
+                    $prefix = "[System] ";
+                }
+                elsif ( $msg->{type} eq 'error' ) {
+                    $prefix = "[Error] ";
+                }
+
+                # Add count if more than 1
+                my $count_suffix = $msg->{count} > 1 ? " (x$msg->{count})" : "";
+
+                # Format timestamp if enabled
+                my $time_prefix = "";
+                if ($timestamp_display) {
+                    my $elapsed = time() - $msg->{timestamp};
+                    if ( $elapsed < 60 ) {
+                        $time_prefix = "[$elapsed" . "s] ";
+                    }
+                    else {
+                        my $min = int( $elapsed / 60 );
+                        $time_prefix = "[$min" . "m] ";
+                    }
+                }
+
+                # Combine all parts
+                my $full_msg =
+                  $time_prefix . $prefix . $msg->{content} . $count_suffix;
+
+                push @message_children, { text => $full_msg, };
             }
-        );
+
+            $messages_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 0,
+                    ),
+                    children => \@message_children,
+                }
+            );
+        }
 
         $self->refresh();
         return $self;
@@ -678,21 +578,37 @@ class Iterum::UI::CLI {
 
     # Display combat options
     method display_combat_options($options) {
-        $self->render_element(
-            'combat_options',
-            sub {
-                my $ctx = shift;
-
-                # Display combat options title
-                $ctx->add_text( 0, 0, "Combat Options:", 'white', 1 );
-
-                # Display each option with its number
-                for my $i ( 0 .. $#$options ) {
-                    $ctx->add_text( 2, $i + 1,
-                        ( $i + 1 ) . ". " . $options->[$i] );
+        my $options_element = $self->find_element('combat_options');
+        if ($options_element) {
+            my @option_children = (
+                {
+                    text        => "Combat Options:",
+                    text_config => text_config( color_white(1), { bold => 1 } ),
                 }
+            );
+
+            # Display each option with its number
+            for my $i ( 0 .. $#$options ) {
+                push @option_children,
+                  {
+                    text        => ( $i + 1 ) . ". " . $options->[$i],
+                    text_config => text_config( color_white(1) ),
+                  };
             }
-        );
+
+            $options_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 1,
+                    ),
+                    children => \@option_children,
+                }
+            );
+        }
 
         $self->refresh();
         return $self;
@@ -706,18 +622,26 @@ class Iterum::UI::CLI {
         $self->display_combat_options( \@options );
 
         # Add the input prompt at the bottom
-        $self->render_element(
-            'input',
-            sub {
-                my $ctx = shift;
-                $ctx->add_text( 0, 0, "Enter your choice (or first letter): " );
-            }
-        );
+        my $input_element = $self->find_element('input');
+        if ($input_element) {
+            $input_element->add_child(
+                {
+                    text        => "Enter your choice (or first letter): ",
+                    text_config => text_config( color_white(1) ),
+                }
+            );
+        }
 
         $self->refresh();
 
-        # Get player input using our encapsulated method
-        my $input = $self->read_key();
+        # Get player input
+        my $input;
+        while ( !$input ) {
+            if ( $self->key_pressed() ) {
+                $input = $self->read_key();
+            }
+            select( undef, undef, undef, 0.05 );    # Small delay
+        }
 
         # Handle first letter shortcuts
         if ( $input =~ /^[adqh]$/i ) {
@@ -746,36 +670,58 @@ class Iterum::UI::CLI {
 
     # Display combat result
     method display_result($result) {
-        $self->render_element(
-            'result',
-            sub {
-                my $ctx = shift;
+        my $result_element = $self->find_element('result');
+        if ($result_element) {
 
-                # Draw box around result
-                $ctx->draw_box( 'single', "ACTION RESULT" );
+            # Display action and result
+            my $ev_score = $result->{ev_score};
+            my $ev_color =
+              $ev_score > 0.7
+              ? color_green(1)
+              : ( $ev_score > 0.3 ? color_yellow(1) : color_red(1) );
 
-                # Display action
-                $ctx->add_text( 2, 1, "Action: " . $result->{action} );
-
-                # Display success or failure
-                if ( $result->{success} ) {
-                    $ctx->add_text( 2, 2,
-                        "Success! Damage dealt: " . $result->{damage},
-                        'green' );
-                }
-                else {
-                    $ctx->add_text( 2, 2, "Failed!", 'red' );
-                }
-
-                # Display EV score with color based on value
-                my $ev_score = $result->{ev_score};
-                my $ev_color =
-                  $ev_score > 0.7
-                  ? 'green'
-                  : ( $ev_score > 0.3 ? 'yellow' : 'red' );
-                $ctx->add_text( 2, 3, "EV Score: " . $ev_score, $ev_color );
+            my $success_text;
+            my $success_color;
+            if ( $result->{success} ) {
+                $success_text  = "Success! Damage dealt: " . $result->{damage};
+                $success_color = color_green(1);
             }
-        );
+            else {
+                $success_text  = "Failed!";
+                $success_color = color_red(1);
+            }
+
+            $result_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 1,
+                    ),
+                    children => [
+                        {
+                            text        => "ACTION RESULT",
+                            text_config =>
+                              text_config( color_white(1), { bold => 1 } ),
+                        },
+                        {
+                            text        => "Action: " . $result->{action},
+                            text_config => text_config( color_white(1) ),
+                        },
+                        {
+                            text        => $success_text,
+                            text_config => text_config($success_color),
+                        },
+                        {
+                            text        => "EV Score: " . $ev_score,
+                            text_config => text_config($ev_color),
+                        }
+                    ]
+                }
+            );
+        }
 
         # Also update the message history
         $self->add_system_message("Result:");
@@ -803,24 +749,37 @@ class Iterum::UI::CLI {
 
     # Display EV feedback
     method display_ev_feedback($feedback) {
-        $self->render_element(
-            'ev_feedback',
-            sub {
-                my $ctx = shift;
-
-                # Draw box
-                $ctx->draw_box( 'single', "AI COACH FEEDBACK" );
-
-                # Add each feedback item
-                for my $i ( 0 .. $#$feedback ) {
-
-                    # Don't exceed available space
-                    last if $i + 2 >= $ctx->{bounds}{height};
-
-                    $ctx->add_text( 2, $i + 1, "* " . $feedback->[$i], 'cyan' );
+        my $feedback_element = $self->find_element('ev_feedback');
+        if ($feedback_element) {
+            my @feedback_children = (
+                {
+                    text        => "AI COACH FEEDBACK",
+                    text_config => text_config( color_white(1), { bold => 1 } ),
                 }
+            );
+
+            # Add each feedback item
+            for my $i ( 0 .. $#$feedback ) {
+                push @feedback_children,
+                  {
+                    text        => "* " . $feedback->[$i],
+                    text_config => text_config( color_cyan(1) ),
+                  };
             }
-        );
+
+            $feedback_element->add_child(
+                {
+                    layout_config => Clay::Types::LayoutConfig->new(
+                        sizing_width_type  => $SIZING_GROW,
+                        sizing_height_type => $SIZING_GROW,
+                        layout_direction   => $TOP_TO_BOTTOM,
+                        padding            => padding_all(1),
+                        child_gap          => 1,
+                    ),
+                    children => \@feedback_children,
+                }
+            );
+        }
 
         # Also add each feedback item as a separate message
         for my $comment (@$feedback) {
@@ -831,97 +790,66 @@ class Iterum::UI::CLI {
         return $self;
     }
 
-    # Get generic input from the user
+    # Get generic input from user
     method get_input( $options = undef ) {
+        my $input_element = $self->find_element('input');
+        if ($input_element) {
+            if ( defined $options ) {    # Options mode - display prompt
+                $input_element->add_child(
+                    {
+                        text => "Enter your choice (1-"
+                          . scalar(@$options) . "): ",
+                        text_config => text_config( color_white(1) ),
+                    }
+                );
+            }
+            else {
+                # Any key mode
+                $input_element->add_child(
+                    {
+                        text        => "Press any key to continue...",
+                        text_config => text_config( color_white(1) ),
+                    }
+                );
+            }
+        }
 
-        # Clear input element
-        $self->clear_element('input');
+        $self->refresh();
+
+        # Get input
+        my $input;
+        while ( !$input ) {
+            if ( $self->key_pressed() ) {
+                $input = $self->read_key();
+            }
+            select( undef, undef, undef, 0.05 );    # Small delay
+        }
 
         if ( defined $options ) {
 
-            # Options mode - display prompt
-            $self->render_element(
-                'input',
-                sub {
-                    my $ctx = shift;
-                    $ctx->add_text( 0, 0,
-                        "Enter your choice (1-" . scalar(@$options) . "): " );
-                }
-            );
-
-            $self->refresh();
-
-            my $input;
-            my $valid = 0;
-
-            while ( !$valid ) {
-                $input = $self->read_key();
-
-                # Handle special keys
-                if ( $input eq 'q' || $input eq 'Q' ) {
-                    die "User quit the game";
-                }
-
-                # Clear error message space
-                $self->render_element(
-                    'input',
-                    sub {
-                        my $ctx = shift;
-                        $ctx->add_text( 0, 0,
-                                "Enter your choice (1-"
-                              . scalar(@$options) . "): "
-                              . $input );
-                    }
-                );
-
-                # Validate input
-                if ( $input !~ /^\d+$/ ) {
-                    $self->add_text_to_element( 'input', 0, 1,
-                        "Invalid input. Please enter a number.",
-                        'red', 1 );
-                    $self->refresh();
-                    next;
-                }
-
+            # Process numeric choice
+            if ( $input =~ /^\d+$/ ) {
                 my $index = $input - 1;
-                if ( $index < 0 || $index > $#$options ) {
-                    $self->add_text_to_element(
-                        'input',
-                        0,
-                        1,
-                        "Invalid choice. Please choose 1-"
-                          . scalar(@$options) . ".",
-                        'red',
-                        1
-                    );
-                    $self->refresh();
-                    next;
+                if ( $index >= 0 && $index <= $#$options ) {
+                    return $options->[$index];
                 }
-
-                $valid = 1;
-                return $options->[$index];
             }
+
+            # Handle special keys
+            if ( $input eq 'q' || $input eq 'Q' ) {
+                die "User quit the game";
+            }
+
+            # Default to first option on invalid input
+            return $options->[0];
         }
-        else {
-            # Any key press mode - just wait for any key
-            $self->refresh();
-            return $self->read_key();
-        }
+
+        return $input;
     }
 
     # Prompt user to continue
     method prompt_continue() {
-        $self->render_element(
-            'input',
-            sub {
-                my $ctx = shift;
-                $ctx->add_text( 0, 0, "Press any key to continue..." );
-            }
-        );
-
-        $self->refresh();
-        $self->read_key();
-        return $self;
+        return $self->get_input();
     }
 
     # Clean up and reset terminal

@@ -40,6 +40,7 @@ class Clay::Types::TextConfig {
     field $wrap_mode :param :reader      = $WRAP_WORDS;
     field $text_alignment :param :reader = $ALIGN_LEFT;
     field $orientation :param :reader    = $LEFT_TO_RIGHT;
+    field $bold :param :reader           = 0;
 
     method wrap_text( $text //= '', $max_line_width = 1 ) {
 

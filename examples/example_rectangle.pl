@@ -2,8 +2,6 @@
 use 5.40.0;
 use warnings;
 use utf8;
-use Term::ReadKey;
-use Term::Screen;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -13,42 +11,58 @@ binmode(STDOUT, ":utf8");
 # Import Clay modules
 use Clay;
 
-# Create screen and context
-my $screen = Term::Screen->new();
-my $context = create_context($screen);
+# Create context
+my $context = create_context();
 
-# Instructions
-print "This example demonstrates rectangle rendering.\n";
-print "A white rectangle will be rendered at position (5,5) with size 10x8.\n";
-print "Press any key to continue...\n";
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
+my $root = create_root(
+    $context,
+    {
+        id => 'root',
+        layout_config => Clay::Types::LayoutConfig->new(
+            sizing_width_type => $SIZING_GROW,
+            sizing_height_type => $SIZING_GROW,
+            padding => padding_all(2),
+            alignment_x => $ALIGN_CENTER,
+            alignment_y => $ALIGN_CENTER
+        ),
+        background_color => color(60, 60, 60),
+        children => [
+            {
+                id => 'rectangle',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIXED,
+                    sizing_width_value => 10,
+                    sizing_height_type => $SIZING_FIXED,
+                    sizing_height_value => 8,
+                ),
+                background_color => color(255, 255, 255), # White rectangle
+            },
+            {
+                id => 'instructions',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIT,
+                    sizing_height_type => $SIZING_FIT,
+                    padding => padding_all(1),
+                ),
+                text => 'Rectangle rendered. Press any key to exit...',
+                text_config => text_config(color_white(1)),
+            }
+        ],
+    }
+);
 
-# Clear screen first
-$context->clear();
+while (1) {
+    if ($context->layout()) {
+        $context->render();
+    }
+    
+    if ($context->key_pressed()) {
+        # Exit on any key press
+        last;
+    }
+    
+    # Small delay to prevent excessive CPU usage
+    select(undef, undef, undef, 0.05);
+}
 
-# Create rectangle command
-my $rect_cmd = {
-    type => 'rectangle',
-    rect => Clay::Types::Rect->new(x => 5, y => 5, width => 10, height => 8),
-    color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
-};
-
-# Render the rectangle
-$context->_render_rectangle($rect_cmd);
-
-# Display instructions at the bottom of the screen
-$context->_render_text({
-    type => 'text',
-    position => Clay::Types::Point->new(x => 1, y => 20),
-    text => 'Rectangle rendered. Press any key to exit...',
-    config => Clay::Types::TextConfig->new(
-        color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
-    ),
-});
-
-# Wait for key press to exit
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
+__END__

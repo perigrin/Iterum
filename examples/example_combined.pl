@@ -2,8 +2,6 @@
 use 5.40.0;
 use warnings;
 use utf8;
-use Term::ReadKey;
-use Term::Screen;
 use FindBin qw($Bin);
 use lib "$Bin/../lib";
 
@@ -13,75 +11,84 @@ binmode(STDOUT, ":utf8");
 # Import Clay modules
 use Clay;
 
-# Create screen and context
-my $screen = Term::Screen->new();
-my $context = create_context($screen);
+# Create context
+my $context = create_context();
 
-# Instructions
-print "This example demonstrates combined rendering of multiple primitives.\n";
-print "A gray rectangle, white border, and green text will be rendered together.\n";
-print "Press any key to continue...\n";
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
-
-# Clear screen first
-$context->clear();
-
-# Create commands array with z-index ordering
-my $commands = [
+my $root = create_root(
+    $context,
     {
-        type => 'rectangle',
-        rect => Clay::Types::Rect->new(x => 5, y => 5, width => 20, height => 10),
-        color => Clay::Types::Color->new(r => 60, g => 60, b => 60),
-        z_index => 0,
-    },
-    {
-        type => 'border',
-        rect => Clay::Types::Rect->new(x => 5, y => 5, width => 20, height => 10),
-        config => Clay::Types::BorderConfig->new(
-            width_top => 1,
-            width_right => 1,
-            width_bottom => 1,
-            width_left => 1,
-            color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
+        id => 'root',
+        layout_config => Clay::Types::LayoutConfig->new(
+            sizing_width_type => $SIZING_GROW,
+            sizing_height_type => $SIZING_GROW,
+            layout_direction => $TOP_TO_BOTTOM,
+            padding => padding_all(2),
+            child_gap => 2,
+            alignment_x => $ALIGN_CENTER,
+            alignment_y => $ALIGN_CENTER
         ),
-        z_index => 1,
-    },
-    {
-        type => 'text',
-        position => Clay::Types::Point->new(x => 7, y => 7),
-        text => 'Hello, World!',
-        config => Clay::Types::TextConfig->new(
-            color => Clay::Types::Color->new(r => 0, g => 255, b => 0),
-        ),
-        z_index => 2,
-    },
-    {
-        type => 'text',
-        position => Clay::Types::Point->new(x => 7, y => 9),
-        text => 'This text is inside a box',
-        config => Clay::Types::TextConfig->new(
-            color => Clay::Types::Color->new(r => 255, g => 255, b => 0),
-        ),
-        z_index => 2,
-    },
-    {
-        type => 'text',
-        position => Clay::Types::Point->new(x => 1, y => 20),
-        text => 'Combined rendering. Press any key to exit...',
-        config => Clay::Types::TextConfig->new(
-            color => Clay::Types::Color->new(r => 255, g => 255, b => 255),
-        ),
-        z_index => 3,
-    },
-];
+        background_color => color(30, 30, 30),
+        children => [
+            {
+                id => 'container',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIXED,
+                    sizing_width_value => 20,
+                    sizing_height_type => $SIZING_FIXED,
+                    sizing_height_value => 10,
+                    layout_direction => $TOP_TO_BOTTOM,
+                    padding => padding_all(2),
+                    child_gap => 2,
+                ),
+                background_color => color(60, 60, 60),
+                border_config => border_all(1, color(255, 255, 255)),
+                children => [
+                    {
+                        id => 'text1',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type => $SIZING_FIT,
+                            sizing_height_type => $SIZING_FIT,
+                        ),
+                        text => 'Hello, World!',
+                        text_config => text_config(color_green(1)),
+                    },
+                    {
+                        id => 'text2',
+                        layout_config => Clay::Types::LayoutConfig->new(
+                            sizing_width_type => $SIZING_FIT,
+                            sizing_height_type => $SIZING_FIT,
+                        ),
+                        text => 'This text is inside a box',
+                        text_config => text_config(color_yellow(1)),
+                    },
+                ],
+            },
+            {
+                id => 'instructions',
+                layout_config => Clay::Types::LayoutConfig->new(
+                    sizing_width_type => $SIZING_FIT,
+                    sizing_height_type => $SIZING_FIT,
+                    padding => padding_all(1),
+                ),
+                text => 'Combined rendering. Press any key to exit...',
+                text_config => text_config(color_white(1)),
+            }
+        ],
+    }
+);
 
-# Set commands and render
-$context->commands($commands);
-$context->render();
+while (1) {
+    if ($context->layout()) {
+        $context->render();
+    }
+    
+    if ($context->key_pressed()) {
+        # Exit on any key press
+        last;
+    }
+    
+    # Small delay to prevent excessive CPU usage
+    select(undef, undef, undef, 0.05);
+}
 
-# Wait for key press to exit
-ReadMode 4;  # Turn off controls keys
-ReadKey(0);  # Wait for a keypress
-ReadMode 0;  # Reset terminal
+__END__
